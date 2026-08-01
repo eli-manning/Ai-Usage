@@ -663,7 +663,7 @@ struct RingView: View {
     }
 
     private var activeStatus: ProviderStatus {
-        usage.providers[activeProvider.id] ?? ProviderStatus(state: .notInstalled)
+        usage.providers[activeProvider.id] ?? ProviderStatus(state: .checking)
     }
 
     /// Icon + one-word action for the "provider isn't wired up yet" wedge.
@@ -691,6 +691,8 @@ struct RingView: View {
     /// `Process` can't drive.
     private func handleStatusTap() {
         switch activeStatus.state {
+        case .checking:
+            break
         case .notInstalled:
             if let command = activeProvider.installCommand {
                 runInTerminal(command)

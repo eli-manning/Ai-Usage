@@ -30,7 +30,7 @@ struct Bubble: Identifiable {
                               big: claude.session != nil ? "\(claude.session!)%" : "—",
                               sub: claude.errorType == "offline" ? "Offline" : nil)
             }
-            let status = providerStatus[p.id] ?? ProviderStatus(state: .notInstalled)
+            let status = providerStatus[p.id] ?? ProviderStatus(state: .checking)
             if p.id == "antigravity", status.state == .loggedIn, let g = antigravity {
                 // Same "right now" convention as Claude's session figure —
                 // the 5-hour window is Antigravity's rolling short-term

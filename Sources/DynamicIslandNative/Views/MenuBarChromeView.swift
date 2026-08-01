@@ -29,7 +29,7 @@ struct MenuBarChromeView: View {
     private var activeProvider: Provider { Provider.all[currentProviderIdx] }
     private var isClaudeActive: Bool { activeProvider.id == "claude" }
     private var activeStatus: ProviderStatus {
-        providerStatus[activeProvider.id] ?? ProviderStatus(state: .notInstalled)
+        providerStatus[activeProvider.id] ?? ProviderStatus(state: .checking)
     }
 
     private var barHeight: CGFloat { NotchGeometry.info().reservedTopHeight }

@@ -123,6 +123,12 @@ struct ClaudeUsage: Codable {
 /// distinct message for each rather than collapsing "not logged in" and
 /// "logged in but the fetch broke" into the same generic hint.
 enum ProviderState: Codable, Equatable {
+    /// Detection hasn't run even once yet (app just launched, first
+    /// `refresh()` still in flight) — deliberately distinct from
+    /// `.notInstalled` so boot doesn't flash "not installed" for a
+    /// provider that's actually installed and signed in, just not checked
+    /// yet.
+    case checking
     case notInstalled
     case installed      // binary/app detected, not signed in (or not wired up yet)
     case loggedIn        // authenticated; usage data may still be pending
@@ -138,6 +144,7 @@ struct ProviderStatus: Codable {
     /// site having to know it.
     func message(installHint: String) -> String {
         switch state {
+        case .checking: return "Checking…"
         case .notInstalled: return "Not installed. \(installHint)"
         case .installed: return "Detected — not signed in yet."
         case .loggedIn: return "Signed in — not wired up yet."
@@ -149,6 +156,7 @@ struct ProviderStatus: Codable {
     /// word or two next to the badge.
     var shortLabel: String {
         switch state {
+        case .checking: return "…"
         case .notInstalled: return "n/a"
         case .installed: return "sign in"
         case .loggedIn: return "…"
@@ -160,6 +168,7 @@ struct ProviderStatus: Codable {
     /// lives in the tooltip (`message`), this is just what the button says.
     var actionLabel: String {
         switch state {
+        case .checking: return "Checking"
         case .notInstalled: return "Install"
         case .installed: return "Sign In"
         case .loggedIn: return "Soon"
@@ -169,6 +178,7 @@ struct ProviderStatus: Codable {
 
     var actionIcon: String {
         switch state {
+        case .checking: return "ellipsis.circle"
         case .notInstalled: return "arrow.down.circle"
         case .installed: return "person.crop.circle.badge.questionmark"
         case .loggedIn: return "checkmark.circle"
