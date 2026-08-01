@@ -46,6 +46,23 @@ struct Bubble: Identifiable {
 
     static let claudeOrange = Color(hex: "CC785C")
 
+    /// A generic, provider-agnostic filler wedge — "when did we last hear
+    /// from this provider" is always known (`UsageService.lastRefreshed`),
+    /// regardless of which real metrics a provider has or is missing. Used
+    /// to top up an even-sized stat fan to an odd one (see `RingView`'s
+    /// `outerBubbles`) rather than inventing a per-provider "extra" stat: an
+    /// even count has no unambiguous center wedge to select/enlarge, and
+    /// this is the one thing every provider can always supply, so it's the
+    /// one filler this app ever needs. Low priority by design — it drops
+    /// out again the moment the real count is already odd, since it's
+    /// meta-info about the fetch, not a metric worth a permanent slot.
+    static func syncedBubble(lastRefreshed: Date?, color: Color) -> Bubble {
+        let ago = Format.ago(lastRefreshed)
+        let big = ago == "just now" ? "Now" : ago.replacingOccurrences(of: " ago", with: "")
+        return Bubble(id: "synced", label: "Synced", color: color, icon: .symbol("checkmark.circle"),
+                      pct: nil, big: big, sub: "Last synced \(ago)")
+    }
+
     /// All of Claude's stat wedges, fanned at once — Session, Weekly,
     /// Credits, Skills, All-time, whichever have real clean data. No paging:
     /// the fan just grows/shrinks with however many are available. All share
@@ -87,11 +104,11 @@ struct Bubble: Identifiable {
         var list: [Bubble] = []
         if let pct = g.fiveHourPct {
             list.append(Bubble(id: "fiveHour", label: "5 Hour", color: color, icon: .symbol("clock.fill"),
-                                pct: pct, big: "\(pct)%", sub: nil))
+                                pct: pct, big: "\(pct)%", sub: g.fiveHourReset))
         }
         if let pct = g.weeklyPct {
             list.append(Bubble(id: "weekly", label: "Weekly", color: color, icon: .symbol("calendar"),
-                                pct: pct, big: "\(pct)%", sub: nil))
+                                pct: pct, big: "\(pct)%", sub: g.weeklyReset))
         }
         return list
     }
