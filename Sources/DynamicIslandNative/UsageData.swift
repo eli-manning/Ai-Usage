@@ -71,6 +71,36 @@ struct CodexUsage: Codable {
     }
 }
 
+/// One row off the Cursor CLI's `/usage` panel table (Category / Current /
+/// Usage — e.g. "Included        0% used"). Which categories a plan shows
+/// isn't a fixed, documented set (Free shows Included/Auto/API; other plans
+/// may differ), so this is a list rather than fixed fields, same reasoning
+/// as `CodexLimit`. See fetch-cursor-usage.js.
+struct CursorUsageRow: Codable {
+    var name: String
+    var pctUsed: Int
+}
+
+struct CursorUsage: Codable {
+    var signedIn: Bool?
+    var plan: String?
+    /// The one reset date printed once in the panel's header — applies to
+    /// every row, unlike Codex where each limit has its own.
+    var reset: String?
+    var rows: [CursorUsageRow]?
+    var error: String?
+
+    /// The one figure that best represents "quota right now" — same
+    /// rolling-window-first spirit as `CodexUsage.primaryPct`, but Cursor's
+    /// categories aren't a rolling-window/long-window pair, so this just
+    /// prefers whichever row is literally named "Included" (the plan's own
+    /// base quota) and falls back to the first row otherwise.
+    var primaryPct: Int? {
+        guard let rows, !rows.isEmpty else { return nil }
+        return (rows.first { $0.name.lowercased() == "included" } ?? rows.first)?.pctUsed
+    }
+}
+
 struct ClaudeUsage: Codable {
     var session: Int?
     var weekly: Int?
