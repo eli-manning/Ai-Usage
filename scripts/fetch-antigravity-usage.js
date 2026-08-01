@@ -27,6 +27,27 @@ function usedPctFromRemaining(remainingStr) {
   return Math.round(100 - remaining);
 }
 
+// agy's own duration text is always "<N>h <M>m" (e.g. "157h 4m") — never
+// days, and never correctly pluralized. Re-express in days/hours (falling
+// back to minutes for anything under an hour), singular/plural picked per unit.
+function formatAgyDuration(str) {
+  const hMatch = str.match(/(\d+)\s*h/);
+  const mMatch = str.match(/(\d+)\s*m/);
+  const totalMinutes = (hMatch ? parseInt(hMatch[1], 10) : 0) * 60 + (mMatch ? parseInt(mMatch[1], 10) : 0);
+  if (totalMinutes <= 0) return str;
+
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  const unit = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  const parts = [];
+  if (days > 0) parts.push(unit(days, "day"));
+  if (hours > 0) parts.push(unit(hours, "hour"));
+  if (days === 0 && hours === 0 && minutes > 0) parts.push(unit(minutes, "minute"));
+  return parts.join(" ") || str;
+}
+
 function parseAgyOutput(raw) {
   const lines = ansiToLines(raw)
     .map((l) => stripBoxChars(l).trim())
@@ -48,13 +69,25 @@ function parseAgyOutput(raw) {
   }
   const section = geminiSectionMatch[1];
 
-  const weeklyMatch = section.match(/Weekly Limit[\s\S]*?([\d.]+)%\s*\n\s*(?:([\d.]+)% remaining|Quota available)/);
-  const fiveHourMatch = section.match(/Five Hour Limit[\s\S]*?([\d.]+)%\s*\n\s*(?:([\d.]+)% remaining|Quota available)/);
+  // "100% remaining · Refreshes in 157h 4m" — the "Refreshes in …" clause is
+  // only present once some quota has actually been consumed; a completely
+  // untouched limit just reads "Quota available" with nothing to count down.
+  const weeklyMatch = section.match(/Weekly Limit[\s\S]*?([\d.]+)%\s*\n\s*(?:([\d.]+)% remaining(?:\s*·\s*Refreshes in ([^\n]+))?|Quota available)/);
+  const fiveHourMatch = section.match(/Five Hour Limit[\s\S]*?([\d.]+)%\s*\n\s*(?:([\d.]+)% remaining(?:\s*·\s*Refreshes in ([^\n]+))?|Quota available)/);
 
   const weeklyPct = weeklyMatch ? usedPctFromRemaining(weeklyMatch[2] ?? weeklyMatch[1]) : null;
   const fiveHourPct = fiveHourMatch ? usedPctFromRemaining(fiveHourMatch[2] ?? fiveHourMatch[1]) : null;
+  const weeklyReset = weeklyMatch?.[3] ? `Refreshes in ${formatAgyDuration(weeklyMatch[3].trim())}` : null;
+  const fiveHourReset = fiveHourMatch?.[3] ? `Refreshes in ${formatAgyDuration(fiveHourMatch[3].trim())}` : null;
 
-  return { signedIn: true, weeklyPct, fiveHourPct, error: weeklyPct == null && fiveHourPct == null ? "Could not parse quota." : null };
+  return {
+    signedIn: true,
+    weeklyPct,
+    fiveHourPct,
+    weeklyReset,
+    fiveHourReset,
+    error: weeklyPct == null && fiveHourPct == null ? "Could not parse quota." : null,
+  };
 }
 
 function runAgyUsage(agyPath, augmentedEnv) {

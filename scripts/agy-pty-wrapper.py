@@ -27,6 +27,8 @@ except ImportError:
     termios = None
 
 READY_MARKER = b"for shortcuts"  # first appears once the ready `>` prompt is up
+PANEL_READY_MARKER = b"GEMINI MODELS"
+PANEL_FALLBACK_TIMEOUT_S = 10.0
 IDLE_QUIET_S = 1.0
 # First-run onboarding (color scheme, workspace trust, a live-generated
 # tutorial preview) can take much longer than steady-state startup — one
@@ -136,12 +138,30 @@ def main():
                 except OSError:
                     pass
 
+            # A cold session can have a real network round-trip for quota
+            # data between the command executing and the panel actually
+            # painting — 1s of terminal silence can land right in that gap
+            # (server latency, not user/terminal idleness), which was
+            # grabbing a screen before the panel had rendered. Require the
+            # panel to actually show up in the buffer, not just quiet time,
+            # before trusting a quiet screen. NOT_SIGNED_IN_MARKER is
+            # deliberately *not* treated as a stop signal here — it flashes
+            # transiently during the normal startup handshake before a
+            # cached-token session silently signs itself in (see
+            # parseAgyOutput's own comment on this same behavior), so
+            # breaking out on it early was grabbing that transient flash
+            # instead of waiting for the real panel a moment later. Falls
+            # back to the old idle-only rule after PANEL_FALLBACK_TIMEOUT_S
+            # so a changed/missing marker (or a genuinely logged-out
+            # session) can't hang the whole capture — parseAgyOutput on the
+            # Node side is what actually decides signed-in vs. error from
+            # whatever's in the final buffer.
             if (
                 enter_after_command_at is not None
-                and now - enter_after_command_at > IDLE_QUIET_S
                 and idle_for > IDLE_QUIET_S
             ):
-                break
+                if PANEL_READY_MARKER in buf or (now - enter_after_command_at) > PANEL_FALLBACK_TIMEOUT_S:
+                    break
 
             if os.waitpid(pid, os.WNOHANG)[0] != 0:
                 break
