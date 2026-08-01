@@ -785,9 +785,14 @@ struct RingView: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help("Click to refresh · hover to switch provider")
+        .help("Click to refresh · hover to switch provider · right-click to quit")
         // Hover no longer lives here at all — see `HoverCircle` in
         // `body`, a native fixed-geometry hover sensor that isn't affected
         // by this button's own resizing, or by anything else in the tree.
+        // The only way to quit now that there's no menu-bar status item
+        // (see AppDelegate) — right-click the hub.
+        .contextMenu {
+            Button("Quit") { NSApp.terminate(nil) }
+        }
     }
 }
