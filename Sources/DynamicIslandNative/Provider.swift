@@ -21,7 +21,16 @@ struct Provider: Identifiable {
     var loginCommand: String? = nil
 
     static let all: [Provider] = [
-        Provider(id: "claude", name: "Claude", color: Color(hex: "D97757"), icon: BrandIcon.claude),
+        // Claude's own ring/pill never actually consult these — `RingView`
+        // always renders `claudeMetrics` regardless of sign-in state, so
+        // there's no "Install"/"Sign In" action wedge for it in practice.
+        // Filled in anyway so the fallback path (`handleStatusTap`,
+        // `ProviderStatus.message`) isn't silently broken for Claude if
+        // that ever changes, or on a machine where `claude` genuinely isn't
+        // set up yet.
+        Provider(id: "claude", name: "Claude", color: Color(hex: "D97757"), icon: BrandIcon.claude,
+                 hint: "Run `claude` and follow the sign-in prompt.",
+                 installCommand: "npm install -g @anthropic-ai/claude-code", loginCommand: "claude"),
         Provider(id: "antigravity", name: "Antigravity", color: Color(hex: "4E8CFF"), icon: BrandIcon.gemini,
                  hint: "Run `agy`, then sign in with Google.",
                  installCommand: "brew install --cask antigravity-cli", loginCommand: "agy"),
