@@ -5,6 +5,7 @@ import Combine
 final class UsageService: ObservableObject {
     @Published var claude: ClaudeUsage = .empty
     @Published var antigravity: GeminiUsage?
+    @Published var codex: CodexUsage?
     @Published var providers: [String: ProviderStatus] = [:]
     @Published var isRefreshing = false
     /// When the current refresh cycle finished, independent of which
@@ -16,12 +17,14 @@ final class UsageService: ObservableObject {
     private var timer: Timer?
     private let scriptPath: String
     private let antigravityScriptPath: String
+    private let codexScriptPath: String
 
     init() {
         // scripts/*.js sit next to the executable in dev (swift run resolves
         // relative to the package root's working directory).
         scriptPath = Self.resolveScriptPath("fetch-usage.js")
         antigravityScriptPath = Self.resolveScriptPath("fetch-antigravity-usage.js")
+        codexScriptPath = Self.resolveScriptPath("fetch-codex-usage.js")
         Task { await refresh() }
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
@@ -48,25 +51,45 @@ final class UsageService: ObservableObject {
         var newProviders = providerResult
 
         // Only the CLI itself can tell us whether it's actually signed in
-        // and what the real quota is — `which agy` just proves the binary
-        // exists, so this runs after detection and only when detection
-        // found it installed.
-        if newProviders["antigravity"]?.state == .installed {
-            if let result = await fetchAntigravityUsage() {
-                if let err = result.error {
-                    // A transient failure (agy hiccuped, the PTY drive timed
-                    // out) shouldn't blank out wedges that were showing real
-                    // percentages a moment ago — keep `antigravity` as-is
-                    // and just surface the error in provider state. Same
-                    // reasoning as `applyClaudeUsage` below.
-                    newProviders["antigravity"] = ProviderStatus(state: .error(err))
-                } else if result.signedIn == false {
-                    antigravity = result
-                    newProviders["antigravity"] = ProviderStatus(state: .installed)
-                } else {
-                    antigravity = result
-                    newProviders["antigravity"] = ProviderStatus(state: .loggedIn)
-                }
+        // and what the real quota is — `which agy`/`which codex` just prove
+        // the binary exists, so these run after detection and only for
+        // whichever ones detection found installed, in parallel with each
+        // other since neither depends on the other. Snapshotting the two
+        // flags into `let`s first (rather than reading `newProviders`
+        // straight from inside the `async let` initializers) is what keeps
+        // this out of Swift 6's "mutable var captured by concurrent code"
+        // error — `newProviders` itself gets mutated below.
+        let antigravityInstalled = newProviders["antigravity"]?.state == .installed
+        let codexInstalled = newProviders["codex"]?.state == .installed
+        async let antigravityResult: GeminiUsage? = antigravityInstalled ? await fetchAntigravityUsage() : nil
+        async let codexResult: CodexUsage? = codexInstalled ? await fetchCodexUsage() : nil
+        let (agyResult, codexRes) = await (antigravityResult, codexResult)
+
+        if let result = agyResult {
+            if let err = result.error {
+                // A transient failure (agy hiccuped, the PTY drive timed
+                // out) shouldn't blank out wedges that were showing real
+                // percentages a moment ago — keep `antigravity` as-is
+                // and just surface the error in provider state. Same
+                // reasoning as `applyClaudeUsage` below.
+                newProviders["antigravity"] = ProviderStatus(state: .error(err))
+            } else if result.signedIn == false {
+                antigravity = result
+                newProviders["antigravity"] = ProviderStatus(state: .installed)
+            } else {
+                antigravity = result
+                newProviders["antigravity"] = ProviderStatus(state: .loggedIn)
+            }
+        }
+        if let result = codexRes {
+            if let err = result.error {
+                newProviders["codex"] = ProviderStatus(state: .error(err))
+            } else if result.signedIn == false {
+                codex = result
+                newProviders["codex"] = ProviderStatus(state: .installed)
+            } else {
+                codex = result
+                newProviders["codex"] = ProviderStatus(state: .loggedIn)
             }
         }
         providers = newProviders
@@ -103,6 +126,29 @@ final class UsageService: ObservableObject {
             process.terminationHandler = { _ in
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 continuation.resume(returning: try? JSONDecoder().decode(GeminiUsage.self, from: data))
+            }
+
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
+    private func fetchCodexUsage() async -> CodexUsage? {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["node", codexScriptPath]
+
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+
+            process.terminationHandler = { _ in
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                continuation.resume(returning: try? JSONDecoder().decode(CodexUsage.self, from: data))
             }
 
             do {

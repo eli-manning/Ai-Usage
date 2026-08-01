@@ -39,6 +39,38 @@ struct GeminiUsage: Codable {
     var error: String?
 }
 
+/// One row off the Codex CLI's `/status` panel (e.g. "Monthly limit: []
+/// 99% left ..."). `name` is the row's own label verbatim — which limits
+/// exist depends on the account's plan (Free shows just a monthly limit;
+/// paid plans add a rolling 5-hour and/or weekly one) — so this is a list
+/// rather than fixed fields, and `pctUsed` is already inverted from the
+/// panel's percent-*left* display to match every other provider's `pct`
+/// convention in this app. See fetch-codex-usage.js.
+struct CodexLimit: Codable {
+    var name: String
+    var pctUsed: Int
+    var reset: String?
+}
+
+struct CodexUsage: Codable {
+    var signedIn: Bool?
+    var plan: String?
+    var limits: [CodexLimit]?
+    var error: String?
+
+    /// The one figure that best represents "quota right now" — the same
+    /// rolling-window-first preference every other provider's pill/picker
+    /// badge uses (Claude's session, Antigravity's five-hour). Matched by
+    /// name fragment rather than fixed fields since which limits exist
+    /// depends on plan; Free accounts have no 5-hour/weekly row at all, so
+    /// this falls all the way back to whichever single limit they do have.
+    var primaryPct: Int? {
+        guard let limits, !limits.isEmpty else { return nil }
+        let named: (String) -> CodexLimit? = { needle in limits.first { $0.name.lowercased().contains(needle) } }
+        return (named("5h") ?? named("weekly") ?? limits.first)?.pctUsed
+    }
+}
+
 struct ClaudeUsage: Codable {
     var session: Int?
     var weekly: Int?
