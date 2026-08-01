@@ -28,9 +28,17 @@ struct Provider: Identifiable {
         Provider(id: "codex", name: "Codex", color: Color(hex: "3ECF8E"), icon: BrandIcon.codex,
                  hint: "Run `codex`, then `/status` for usage.",
                  installCommand: "npm i -g @openai/codex", loginCommand: "codex"),
+        // The installer drops the binary in ~/.local/bin but — per its own
+        // printed "Next Steps" — never adds that to PATH itself; it just
+        // tells the user to append the export line by hand. Chaining that
+        // append onto the install command (idempotent via grep -qxF, so
+        // reinstalling never duplicates the line) is what makes "Install"
+        // actually leave you with a working `cursor-agent`/`agent`, rather
+        // than one that only works after a manual PATH fix.
         Provider(id: "cursor", name: "Cursor", color: Color(hex: "8B7CF6"), icon: BrandIcon.cursor,
                  hint: "Run `cursor-agent`, then `/usage` for usage.",
-                 installCommand: "curl -fsSL https://cursor.com/install | bash", loginCommand: "cursor-agent"),
+                 installCommand: #"curl -fsSL https://cursor.com/install | bash && (grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc)"#,
+                 loginCommand: "cursor-agent login"),
     ]
 }
 
