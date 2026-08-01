@@ -7,6 +7,11 @@ final class UsageService: ObservableObject {
     @Published var antigravity: GeminiUsage?
     @Published var providers: [String: ProviderStatus] = [:]
     @Published var isRefreshing = false
+    /// When the current refresh cycle finished, independent of which
+    /// provider(s) it actually had new data for — this backs the generic
+    /// "Synced" filler wedge (`Bubble.syncedBubble`), which every provider's
+    /// fan can use regardless of what real metrics it has.
+    @Published var lastRefreshed: Date?
 
     private var timer: Timer?
     private let scriptPath: String
@@ -65,6 +70,7 @@ final class UsageService: ObservableObject {
             }
         }
         providers = newProviders
+        lastRefreshed = Date()
     }
 
     /// Ports the same caching rule `os-menu/main.js`'s `applyUsageData` uses

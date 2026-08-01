@@ -34,6 +34,8 @@ struct GeminiUsage: Codable {
     var signedIn: Bool?
     var weeklyPct: Int?
     var fiveHourPct: Int?
+    var weeklyReset: String?
+    var fiveHourReset: String?
     var error: String?
 }
 
