@@ -6,6 +6,7 @@ final class UsageService: ObservableObject {
     @Published var claude: ClaudeUsage = .empty
     @Published var antigravity: GeminiUsage?
     @Published var codex: CodexUsage?
+    @Published var cursor: CursorUsage?
     @Published var providers: [String: ProviderStatus] = [:]
     @Published var isRefreshing = false
     /// When the current refresh cycle finished, independent of which
@@ -18,6 +19,7 @@ final class UsageService: ObservableObject {
     private let scriptPath: String
     private let antigravityScriptPath: String
     private let codexScriptPath: String
+    private let cursorScriptPath: String
 
     init() {
         // scripts/*.js sit next to the executable in dev (swift run resolves
@@ -25,6 +27,7 @@ final class UsageService: ObservableObject {
         scriptPath = Self.resolveScriptPath("fetch-usage.js")
         antigravityScriptPath = Self.resolveScriptPath("fetch-antigravity-usage.js")
         codexScriptPath = Self.resolveScriptPath("fetch-codex-usage.js")
+        cursorScriptPath = Self.resolveScriptPath("fetch-cursor-usage.js")
         Task { await refresh() }
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
@@ -61,9 +64,11 @@ final class UsageService: ObservableObject {
         // error — `newProviders` itself gets mutated below.
         let antigravityInstalled = newProviders["antigravity"]?.state == .installed
         let codexInstalled = newProviders["codex"]?.state == .installed
+        let cursorInstalled = newProviders["cursor"]?.state == .installed
         async let antigravityResult: GeminiUsage? = antigravityInstalled ? await fetchAntigravityUsage() : nil
         async let codexResult: CodexUsage? = codexInstalled ? await fetchCodexUsage() : nil
-        let (agyResult, codexRes) = await (antigravityResult, codexResult)
+        async let cursorResult: CursorUsage? = cursorInstalled ? await fetchCursorUsage() : nil
+        let (agyResult, codexRes, cursorRes) = await (antigravityResult, codexResult, cursorResult)
 
         if let result = agyResult {
             if let err = result.error {
@@ -90,6 +95,17 @@ final class UsageService: ObservableObject {
             } else {
                 codex = result
                 newProviders["codex"] = ProviderStatus(state: .loggedIn)
+            }
+        }
+        if let result = cursorRes {
+            if let err = result.error {
+                newProviders["cursor"] = ProviderStatus(state: .error(err))
+            } else if result.signedIn == false {
+                cursor = result
+                newProviders["cursor"] = ProviderStatus(state: .installed)
+            } else {
+                cursor = result
+                newProviders["cursor"] = ProviderStatus(state: .loggedIn)
             }
         }
         providers = newProviders
@@ -159,6 +175,29 @@ final class UsageService: ObservableObject {
         }
     }
 
+    private func fetchCursorUsage() async -> CursorUsage? {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["node", cursorScriptPath]
+
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+
+            process.terminationHandler = { _ in
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                continuation.resume(returning: try? JSONDecoder().decode(CursorUsage.self, from: data))
+            }
+
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
     private func fetchClaudeUsage() async -> ClaudeUsage? {
         await withCheckedContinuation { continuation in
             let process = Process()
@@ -197,16 +236,35 @@ final class UsageService: ObservableObject {
     private func detectOtherProviders() async -> [String: ProviderStatus] {
         var result: [String: ProviderStatus] = [:]
         for provider in Provider.all where provider.id != "claude" {
-            let installed = provider.loginCommand.map(Self.which) ?? false
+            // `loginCommand` can be more than a bare binary name (Cursor's
+            // is "cursor-agent login") — `which` needs just the binary, so
+            // this takes the first token rather than assuming the whole
+            // string names an executable.
+            let bin = provider.loginCommand?.split(separator: " ").first.map(String.init)
+            let installed = bin.map(Self.which) ?? false
             result[provider.id] = ProviderStatus(state: installed ? .installed : .notInstalled)
         }
         return result
+    }
+
+    /// A GUI-launched app's `Process` inherits a bare-bones PATH (roughly
+    /// `/usr/bin:/bin:/usr/sbin:/sbin` plus whatever `/etc/paths.d` adds
+    /// system-wide for Homebrew) — nothing a shell rc file adds only for
+    /// interactive shells, like `~/.local/bin` (where `cursor-agent`/`agent`
+    /// actually live), ever makes it in. Every spot that shells out to a
+    /// CLI the user installed themselves needs this same augmentation.
+    private static func augmentedEnv() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let extra = ["/opt/homebrew/bin", "/usr/local/bin", NSHomeDirectory() + "/.local/bin"]
+        env["PATH"] = extra.joined(separator: ":") + ":" + (env["PATH"] ?? "")
+        return env
     }
 
     private static func which(_ bin: String) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["which", bin]
+        process.environment = augmentedEnv()
         process.standardOutput = Pipe()
         process.standardError = Pipe()
         do {
