@@ -55,10 +55,21 @@ struct RingGeometry {
     static var rOuter: CGFloat { rInner + statsLayerThickness }
     static var rOuterSelected: CGFloat { rOuter + statsSelectedExtra }
 
+    // MARK: Layer 3 — extra detail about whichever stat is selected (reset
+    // time, spend, favorite model, ...). Always exactly one wedge, sharing
+    // the selected stat wedge's own angular span so it reads as that
+    // wedge's own info flaring further outward, not a separate ring.
+    // Chained off layer 2's *selected* outer edge, same reasoning as every
+    // other layer: it must never overlap layer 2 regardless of how any of
+    // these thicknesses get tuned later.
+    static let infoLayerThickness: CGFloat = 30
+    static var infoRInner: CGFloat { rOuterSelected + layerMargin }
+    static var infoROuter: CGFloat { infoRInner + infoLayerThickness }
+
     /// Derived from the outermost layer, not a guessed constant — so the
     /// frame (and the panel, via `NotchGeometry.expandedSize`) always has
     /// room for whatever the layer chain currently adds up to.
-    static var width: CGFloat { (rOuterSelected + 20) * 2 }
+    static var width: CGFloat { (infoROuter + 20) * 2 }
 }
 
 struct WedgeLayout: Identifiable {
@@ -80,6 +91,13 @@ struct WedgeLayout: Identifiable {
         let r = rInner + (rOuter - rInner) * radiusFraction
         return .onArc(cx: cx, cy: cy, r: r, deg: (startDeg + endDeg) / 2)
     }
+
+    /// Same tangent-orientation convention `CurvedText` uses for its
+    /// middle character (see its own doc comment: "up" points inward,
+    /// toward the hub, which is what keeps text right-side up along the
+    /// bottom half of the circle) — so an icon tilts to match the curved
+    /// label sitting right next to it instead of standing flat against it.
+    var tangentRotationDeg: Double { (startDeg + endDeg) / 2 - 90 }
 
     /// The widest a label can be before it would start overlapping a
     /// neighboring wedge — the chord length at the *outer* radius (the
@@ -179,13 +197,6 @@ struct RingView: View {
     // at the wrong bubble.
     @State private var selectedStatID: String = "session"
     @State private var isHoveringHub = false
-    // Only meaningful for an even-sized fan (odd fans have one unambiguous
-    // middle index — see `centeredOrder`). With exactly 2 items there's no
-    // way to tell "rotate forward" from "rotate backward" from the fixed
-    // order alone, so without this every swap would snap the outgoing item
-    // back to the same fixed side instead of swinging like a pendulum.
-    // Toggled once per genuine selection change in `selectOuter`.
-    @State private var centerSlotParity = false
 
     private var isClaudeActive: Bool { currentProviderIdx == 0 }
     private var activeProvider: Provider { Provider.all[currentProviderIdx] }
@@ -207,7 +218,7 @@ struct RingView: View {
     /// logo, so there's nothing else to render out here until a provider
     /// has real stats.
     private var outerBubbles: [Bubble] {
-        let metrics: [Bubble]
+        var metrics: [Bubble]
         if isClaudeActive {
             metrics = Bubble.claudeMetrics(usage.claude)
         } else if activeProvider.id == "antigravity", let g = usage.antigravity, activeStatus.state == .loggedIn {
@@ -216,6 +227,16 @@ struct RingView: View {
             metrics = []
         }
         guard !metrics.isEmpty else { return [] }
+        // Keep the fan odd-sized, always — an even count (e.g. Claude
+        // missing its Credits metric, or Antigravity's fixed 2-stat fan)
+        // has no unambiguous middle wedge to center the selection on, which
+        // is what made `centeredOrder` fall back to the parity-toggling
+        // "which side gets the extra item" guess. Topping up to odd with
+        // the generic `synced` filler sidesteps that guess entirely rather
+        // than making it smarter.
+        if metrics.count % 2 == 0 {
+            metrics.append(Bubble.syncedBubble(lastRefreshed: usage.lastRefreshed, color: activeProvider.color))
+        }
         return centeredOrder(metrics)
     }
 
@@ -225,8 +246,11 @@ struct RingView: View {
     /// [farRight, ..., farLeft] to match `buildWedges`' expected input
     /// order (it lays out starting from `arcStart`, the *right* edge of
     /// the fan, and works leftward).
-    private static let claudeStatOrder = ["stats", "credits", "session", "weekly", "skills"]
-    private static let antigravityStatOrder = ["fiveHour", "weekly"]
+    // "synced" only ever actually appears when the real stats above it
+    // land on an even count (see `outerBubbles`) — listed last since it's
+    // the lowest-priority member of every provider's fan.
+    private static let claudeStatOrder = ["stats", "credits", "session", "weekly", "skills", "synced"]
+    private static let antigravityStatOrder = ["fiveHour", "weekly", "synced"]
 
     private var activeStatOrder: [String] {
         isClaudeActive ? Self.claudeStatOrder : Self.antigravityStatOrder
@@ -238,22 +262,16 @@ struct RingView: View {
     /// `session` selected (Claude's default) this reduces to the original
     /// fixed [stats, credits, session, weekly, skills] layout exactly.
     ///
-    /// An odd-sized fan has one unambiguous middle index, so it always
-    /// rotates the same way. An even-sized fan (Antigravity's 2 stats) has
-    /// two equally-valid "center" candidates — `(n-1)/2` and `n/2` — and
-    /// picking the same one every time makes every swap snap the outgoing
-    /// item back to the same fixed side instead of swinging like a
-    /// pendulum. `centerSlotParity` alternates between the two candidates
-    /// once per genuine selection change (see `selectOuter`), which is
-    /// exactly what makes the outgoing item swing to the opposite side each
-    /// time. For an odd n both candidates are equal, so this is a no-op —
-    /// Claude's fan is unaffected either way.
+    /// The fan is always odd-sized now (`outerBubbles` tops up any even
+    /// count with the generic `synced` filler), so there's always one
+    /// unambiguous middle index — no more guessing which side an even fan's
+    /// extra item should land on.
     private func centeredOrder(_ bubbles: [Bubble]) -> [Bubble] {
         let byID = Dictionary(uniqueKeysWithValues: bubbles.map { ($0.id, $0) })
         let available = activeStatOrder.filter { byID[$0] != nil }
         guard !available.isEmpty else { return [] }
         let n = available.count
-        let centerSlot = centerSlotParity ? n / 2 : (n - 1) / 2
+        let centerSlot = (n - 1) / 2
         let selIdx = available.firstIndex(of: selectedStatID) ?? centerSlot
         return (0..<n).map { offset in
             let idx = ((selIdx - centerSlot + offset) % n + n) % n
@@ -272,11 +290,33 @@ struct RingView: View {
         // data it doesn't have.
         let outer = outerBubbles
         let hasStats = !outer.isEmpty
-        let outerSelectedIdx = outer.firstIndex(where: { $0.id == selectedStatID }) ?? 0
+        // Falls back to the true middle index, not 0 — `selectedStatID`
+        // defaults to "session" (Claude's own default stat), which doesn't
+        // exist in another provider's fan until something there gets
+        // tapped. `centeredOrder` already centers its own fallback on the
+        // middle index in that case; this has to agree with it, or
+        // `buildWedges` ends up treating whatever landed at index 0 as
+        // "selected" and piles every other wedge onto one side.
+        let outerSelectedIdx = outer.firstIndex(where: { $0.id == selectedStatID }) ?? (outer.count - 1) / 2
         let outerWedges: [WedgeLayout] = hasStats
             ? buildWedges(bubbles: outer, selectedIdx: outerSelectedIdx,
                            rInner: g.rInner, rOuterBase: g.rOuter, rOuterSelected: g.rOuterSelected)
             : [centeredWedge(allProviderBubbles[currentProviderIdx], rInner: g.rInner, rOuter: g.rOuterSelected)]
+
+        // Layer 3 — extra detail about whichever stat is selected, only
+        // when that stat actually has any (`Bubble.sub` is nil for plenty
+        // of them). Shares the selected wedge's own angular span rather
+        // than being computed independently, so it always sits flared
+        // directly outside it with zero extra bookkeeping.
+        let infoWedge: WedgeLayout? = hasStats
+            ? outerWedges.first(where: { $0.isSelected }).flatMap { sel in
+                sel.bubble.sub.map { _ in
+                    WedgeLayout(bubble: sel.bubble, index: sel.index, isSelected: true,
+                                startDeg: sel.startDeg, endDeg: sel.endDeg,
+                                rInner: g.infoRInner, rOuter: g.infoROuter)
+                }
+            }
+            : nil
 
         let providerBubbles = allProviderBubbles.enumerated().filter { $0.offset != currentProviderIdx }.map(\.element)
         let innerWedges = isHoveringHub
@@ -334,6 +374,33 @@ struct RingView: View {
                     )
                     .position(x: cx, y: cy)
                     .allowsHitTesting(false)
+                }
+
+                // The selected stat's own extra detail — reset time, spend,
+                // favorite model, whatever it has — flared out past its
+                // percent arc. Curved like every other label on this ring,
+                // but sitting in the middle of its own band (not hugging
+                // the outer edge the way the stat wedges' labels do) since
+                // this band only ever holds this one line of text, with
+                // nothing else inside it competing for room. Still a large
+                // enough radius that the same character width sweeps a much
+                // smaller angle than it would on the tighter stat wedges
+                // further in, so it reads as a slight bend, not their
+                // pronounced curve.
+                if let info = infoWedge, let sub = info.bubble.sub {
+                    infoWedgeShape(info)
+                        .transition(.opacity)
+                    CurvedText(
+                        text: infoDisplayText(sub),
+                        radius: (info.rInner + info.rOuter) / 2,
+                        centerDeg: (info.startDeg + info.endDeg) / 2,
+                        fontSize: 9,
+                        weight: .medium,
+                        color: .white.opacity(0.8)
+                    )
+                    .position(x: cx, y: cy)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
                 }
             } else {
                 // No real stats to lay out along an arc yet — an icon +
@@ -448,7 +515,6 @@ struct RingView: View {
 
     private func selectOuter(_ w: WedgeLayout) {
         guard w.bubble.id != selectedStatID else { return }
-        centerSlotParity.toggle()
         selectedStatID = w.bubble.id
     }
 
@@ -459,7 +525,6 @@ struct RingView: View {
         guard providerAllIndex < filtered.count else { return }
         currentProviderIdx = filtered[providerAllIndex].offset
         selectedStatID = "session"
-        centerSlotParity = false
     }
 
     private func wedgeShape(_ w: WedgeLayout) -> some View {
@@ -507,6 +572,36 @@ struct RingView: View {
                                       startDeg: w.startDeg, endDeg: w.endDeg))
     }
 
+    /// `CurvedText` walks every character around the arc rather than
+    /// wrapping, so a long sub (a full sentence like a spend readout) needs
+    /// a hard cap or it just keeps sweeping past where the wedge fan ends.
+    private func infoDisplayText(_ s: String) -> String {
+        let maxChars = 34
+        guard s.count > maxChars else { return s }
+        return String(s.prefix(maxChars - 1)) + "…"
+    }
+
+    /// The layer-3 "extra detail" band — same brand-tinted glass as the
+    /// stat wedges, but deliberately quieter (no percent arc, thinner glow):
+    /// it's a caption for the selected wedge, not another stat competing
+    /// for attention.
+    private func infoWedgeShape(_ w: WedgeLayout) -> some View {
+        WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
+                   startDeg: w.startDeg, endDeg: w.endDeg)
+            .fill(Color.black.opacity(0.3))
+            .overlay(
+                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
+                           startDeg: w.startDeg, endDeg: w.endDeg)
+                    .fill(w.bubble.color.opacity(0.12))
+            )
+            .overlay(
+                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
+                           startDeg: w.startDeg, endDeg: w.endDeg)
+                    .glow(color: w.bubble.color, lineWidth: 1, blurRadius: 2)
+                    .opacity(0.6)
+            )
+    }
+
     /// Icon-only wedge content — no label at all. The logo itself is more
     /// recognizable than a tiny caption, so the provider ring just shows a
     /// badge sized to fill as much of its own wedge as it can (bounded by
@@ -522,6 +617,7 @@ struct RingView: View {
             iconView(w.bubble.icon, size: diameter * 0.6, tint: .white)
         }
         .frame(width: diameter, height: diameter)
+        .rotationEffect(.degrees(w.tangentRotationDeg))
     }
 
     /// One wedge, centered on the fan's own midpoint rather than positioned
@@ -604,6 +700,7 @@ struct RingView: View {
                 iconView(w.bubble.icon, size: w.isSelected ? 18 : 14, tint: w.isSelected ? .white : w.bubble.color)
             }
             .frame(width: w.isSelected ? 32 : 24, height: w.isSelected ? 32 : 24)
+            .rotationEffect(.degrees(w.tangentRotationDeg))
             // Value and label are both drawn separately as `CurvedText`,
             // further out — this is just the icon, in its own inner band.
         }

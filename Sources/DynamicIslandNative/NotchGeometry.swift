@@ -39,7 +39,12 @@ enum NotchGeometry {
     /// inside it (icons/text/hub) is sized to stay legible.
     enum Layout {
         static let flankWidth: CGFloat = 64        // badge/percentage slot, each side of the notch
-        static let fanHeight: CGFloat = 180         // wedge fan + hub area below the bar
+        // Sized for `RingGeometry.infoROuter` (the fan's outermost layer) at
+        // the arc's center angle — its bottom-center, and therefore the
+        // tallest point any wedge ever reaches below the bar — plus a small
+        // buffer, the same margin the ring's own layers use between
+        // themselves.
+        static let fanHeight: CGFloat = 220         // wedge fan + hub area below the bar
         static let fanExtraWidth: CGFloat = 34      // widen beyond notch+flanks so the fan has room to spread
     }
 
