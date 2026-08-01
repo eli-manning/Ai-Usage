@@ -225,6 +225,8 @@ struct RingView: View {
             metrics = Bubble.antigravityMetrics(g, color: activeProvider.color)
         } else if activeProvider.id == "codex", let c = usage.codex, activeStatus.state == .loggedIn {
             metrics = Bubble.codexMetrics(c, color: activeProvider.color)
+        } else if activeProvider.id == "cursor", let cu = usage.cursor, activeStatus.state == .loggedIn {
+            metrics = Bubble.cursorMetrics(cu, color: activeProvider.color)
         } else {
             metrics = []
         }
@@ -258,12 +260,19 @@ struct RingView: View {
     // every id that could ever exist; `centeredOrder` already filters down
     // to whichever ones are actually present.
     private static let codexStatOrder = ["fiveHour", "weekly", "monthly", "synced"]
+    // Cursor's categories aren't a documented fixed set either — this lists
+    // what a Free plan actually shows (see `Bubble.cursorMetrics`); other
+    // plans' categories just fall through `centeredOrder`'s own "id wasn't
+    // in the fixed order" fallback (append-at-the-end via the guard on
+    // `available`) the same as any unrecognized id would.
+    private static let cursorStatOrder = ["included", "auto", "api", "synced"]
 
     private var activeStatOrder: [String] {
         switch activeProvider.id {
         case "claude": return Self.claudeStatOrder
         case "antigravity": return Self.antigravityStatOrder
         case "codex": return Self.codexStatOrder
+        case "cursor": return Self.cursorStatOrder
         default: return []
         }
     }
@@ -280,7 +289,15 @@ struct RingView: View {
     /// extra item should land on.
     private func centeredOrder(_ bubbles: [Bubble]) -> [Bubble] {
         let byID = Dictionary(uniqueKeysWithValues: bubbles.map { ($0.id, $0) })
-        let available = activeStatOrder.filter { byID[$0] != nil }
+        let known = activeStatOrder.filter { byID[$0] != nil }
+        // Anything not in the fixed order — a category this provider's
+        // order list hasn't been taught about yet, e.g. a Cursor plan
+        // whose /usage panel shows categories other than Included/Auto/API
+        // — still needs a slot. Silently filtering it out (the old
+        // behavior) meant an unrecognized id just vanished from the ring
+        // instead of merely losing its place in the neighbor ordering.
+        let unknown = bubbles.map(\.id).filter { !known.contains($0) }
+        let available = known + unknown
         guard !available.isEmpty else { return [] }
         let n = available.count
         let centerSlot = (n - 1) / 2
@@ -293,7 +310,7 @@ struct RingView: View {
 
     var body: some View {
         let g = RingGeometry.self
-        let allProviderBubbles = Bubble.providers(claude: usage.claude, providerStatus: usage.providers, antigravity: usage.antigravity, codex: usage.codex)
+        let allProviderBubbles = Bubble.providers(claude: usage.claude, providerStatus: usage.providers, antigravity: usage.antigravity, codex: usage.codex, cursor: usage.cursor)
 
         // A provider with real data (Claude, or Antigravity once signed in)
         // gets the full multi-wedge stat fan; everyone else gets one

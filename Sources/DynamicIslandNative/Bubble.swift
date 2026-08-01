@@ -22,7 +22,7 @@ struct Bubble: Identifiable {
     /// active/shown, so switching over to it (or just glancing at its
     /// provider-picker wedge) shows real numbers immediately instead of a
     /// blank state while a fresh fetch runs.
-    static func providers(claude: ClaudeUsage, providerStatus: [String: ProviderStatus], antigravity: GeminiUsage?, codex: CodexUsage?) -> [Bubble] {
+    static func providers(claude: ClaudeUsage, providerStatus: [String: ProviderStatus], antigravity: GeminiUsage?, codex: CodexUsage?, cursor: CursorUsage?) -> [Bubble] {
         Provider.all.map { p in
             if p.id == "claude" {
                 return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
@@ -41,6 +41,11 @@ struct Bubble: Identifiable {
             }
             if p.id == "codex", status.state == .loggedIn, let c = codex {
                 let pct = c.primaryPct
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                              pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
+            }
+            if p.id == "cursor", status.state == .loggedIn, let cu = cursor {
+                let pct = cu.primaryPct
                 return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
                               pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
             }
@@ -152,6 +157,21 @@ struct Bubble: Identifiable {
         case "weekly": return "Weekly"
         case "monthly": return "Monthly"
         default: return name.replacingOccurrences(of: " limit", with: "", options: .caseInsensitive)
+        }
+    }
+
+    /// Cursor's quota fan — one wedge per category row on its own /usage
+    /// panel (Included/Auto/API on a Free plan; other plans may show
+    /// different categories). All share the one reset date the panel
+    /// prints once in its header, unlike Codex where each limit carries
+    /// its own.
+    static func cursorMetrics(_ c: CursorUsage, color: Color) -> [Bubble] {
+        guard let rows = c.rows else { return [] }
+        let sub = c.reset.map { "Resets \($0)" }
+        return rows.map { row in
+            Bubble(id: row.name.lowercased(), label: row.name, color: color,
+                   icon: .symbol("gauge"),
+                   pct: row.pctUsed, big: "\(row.pctUsed)%", sub: sub)
         }
     }
 }
