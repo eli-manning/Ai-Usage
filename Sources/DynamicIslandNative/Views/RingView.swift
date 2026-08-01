@@ -223,6 +223,8 @@ struct RingView: View {
             metrics = Bubble.claudeMetrics(usage.claude)
         } else if activeProvider.id == "antigravity", let g = usage.antigravity, activeStatus.state == .loggedIn {
             metrics = Bubble.antigravityMetrics(g, color: activeProvider.color)
+        } else if activeProvider.id == "codex", let c = usage.codex, activeStatus.state == .loggedIn {
+            metrics = Bubble.codexMetrics(c, color: activeProvider.color)
         } else {
             metrics = []
         }
@@ -251,9 +253,19 @@ struct RingView: View {
     // the lowest-priority member of every provider's fan.
     private static let claudeStatOrder = ["stats", "credits", "session", "weekly", "skills", "synced"]
     private static let antigravityStatOrder = ["fiveHour", "weekly", "synced"]
+    // Codex's own set depends on plan (Free has only "monthly"; paid plans
+    // add "fiveHour"/"weekly" — see `Bubble.codexMetrics`), so this lists
+    // every id that could ever exist; `centeredOrder` already filters down
+    // to whichever ones are actually present.
+    private static let codexStatOrder = ["fiveHour", "weekly", "monthly", "synced"]
 
     private var activeStatOrder: [String] {
-        isClaudeActive ? Self.claudeStatOrder : Self.antigravityStatOrder
+        switch activeProvider.id {
+        case "claude": return Self.claudeStatOrder
+        case "antigravity": return Self.antigravityStatOrder
+        case "codex": return Self.codexStatOrder
+        default: return []
+        }
     }
 
     /// Rotates the fixed circular order so the selected stat lands in the
@@ -281,7 +293,7 @@ struct RingView: View {
 
     var body: some View {
         let g = RingGeometry.self
-        let allProviderBubbles = Bubble.providers(claude: usage.claude, providerStatus: usage.providers, antigravity: usage.antigravity)
+        let allProviderBubbles = Bubble.providers(claude: usage.claude, providerStatus: usage.providers, antigravity: usage.antigravity, codex: usage.codex)
 
         // A provider with real data (Claude, or Antigravity once signed in)
         // gets the full multi-wedge stat fan; everyone else gets one

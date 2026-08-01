@@ -17,12 +17,12 @@ struct Bubble: Identifiable {
     var big: String   // headline value shown in the hub when selected
     var sub: String?  // reset time / spend / hint, shown in the hub
 
-    /// `antigravity` is `UsageService`'s cached last-known quota — kept
-    /// around independent of whichever provider is currently active/shown,
-    /// so switching over to it (or just glancing at its provider-picker
-    /// wedge) shows real numbers immediately instead of a blank state while
-    /// a fresh fetch runs.
-    static func providers(claude: ClaudeUsage, providerStatus: [String: ProviderStatus], antigravity: GeminiUsage?) -> [Bubble] {
+    /// `antigravity`/`codex` are `UsageService`'s cached last-known quota —
+    /// kept around independent of whichever provider is currently
+    /// active/shown, so switching over to it (or just glancing at its
+    /// provider-picker wedge) shows real numbers immediately instead of a
+    /// blank state while a fresh fetch runs.
+    static func providers(claude: ClaudeUsage, providerStatus: [String: ProviderStatus], antigravity: GeminiUsage?, codex: CodexUsage?) -> [Bubble] {
         Provider.all.map { p in
             if p.id == "claude" {
                 return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
@@ -36,6 +36,11 @@ struct Bubble: Identifiable {
                 // the 5-hour window is Antigravity's rolling short-term
                 // quota, falling back to weekly if that's all that parsed.
                 let pct = g.fiveHourPct ?? g.weeklyPct
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                              pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
+            }
+            if p.id == "codex", status.state == .loggedIn, let c = codex {
+                let pct = c.primaryPct
                 return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
                               pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
             }
@@ -111,5 +116,42 @@ struct Bubble: Identifiable {
                                 pct: pct, big: "\(pct)%", sub: g.weeklyReset))
         }
         return list
+    }
+
+    /// Codex's quota fan — one wedge per row on its own `/status` panel.
+    /// Which rows exist depends on the account's plan (Free shows only a
+    /// monthly limit; paid plans add a rolling 5-hour and/or weekly one),
+    /// so this maps whatever `codex.limits` actually came back rather than
+    /// assuming a fixed set the way Antigravity's two fixed limits do.
+    static func codexMetrics(_ c: CodexUsage, color: Color) -> [Bubble] {
+        guard let limits = c.limits else { return [] }
+        return limits.map { limit in
+            let id = codexLimitID(limit.name)
+            return Bubble(id: id, label: codexLimitLabel(limit.name), color: color,
+                           icon: .symbol(id == "weekly" ? "calendar" : "clock.fill"),
+                           pct: limit.pctUsed, big: "\(limit.pctUsed)%",
+                           sub: limit.reset.map { "Resets \($0)" })
+        }
+    }
+
+    /// A stable id for the fixed circular ordering in `RingView` — matched
+    /// by content, not exact string, since the panel's own label wording
+    /// ("Monthly limit", "5h limit", ...) isn't guaranteed byte-for-byte
+    /// across CLI versions.
+    private static func codexLimitID(_ name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("5h") || lower.contains("5 h") { return "fiveHour" }
+        if lower.contains("weekly") { return "weekly" }
+        if lower.contains("monthly") { return "monthly" }
+        return name
+    }
+
+    private static func codexLimitLabel(_ name: String) -> String {
+        switch codexLimitID(name) {
+        case "fiveHour": return "5 Hour"
+        case "weekly": return "Weekly"
+        case "monthly": return "Monthly"
+        default: return name.replacingOccurrences(of: " limit", with: "", options: .caseInsensitive)
+        }
     }
 }
