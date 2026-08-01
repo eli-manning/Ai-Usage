@@ -47,11 +47,29 @@ final class UsageService: ObservableObject {
         defer { isRefreshing = false }
 
         async let usage = fetchClaudeUsage()
-        async let detected = detectOtherProviders()
+        async let detected = detectProviders()
         let (usageResult, providerResult) = await (usage, detected)
 
         applyClaudeUsage(usageResult)
         var newProviders = providerResult
+
+        // Claude's own status, refined from the same `which`-based
+        // baseline (installed/notInstalled) `detectProviders` already
+        // gave it: real session/weekly data means actually signed in; an
+        // auth-type error means the CLI is there but not signed in; any
+        // other error while otherwise detected as installed surfaces as a
+        // real error rather than silently staying on the stale baseline.
+        // Claude's own ring/pill don't currently consult this (see
+        // `Provider.all`'s comment on it), but it keeps the status honest
+        // for the day something does, or for a machine where `claude`
+        // genuinely isn't installed/signed in yet.
+        if claude.session != nil || claude.weekly != nil {
+            newProviders["claude"] = ProviderStatus(state: .loggedIn)
+        } else if claude.errorType == "auth" {
+            newProviders["claude"] = ProviderStatus(state: .installed)
+        } else if let err = claude.error, newProviders["claude"]?.state == .installed {
+            newProviders["claude"] = ProviderStatus(state: .error(err))
+        }
 
         // Only the CLI itself can tell us whether it's actually signed in
         // and what the real quota is — `which agy`/`which codex` just prove
@@ -65,9 +83,12 @@ final class UsageService: ObservableObject {
         let antigravityInstalled = newProviders["antigravity"]?.state == .installed
         let codexInstalled = newProviders["codex"]?.state == .installed
         let cursorInstalled = newProviders["cursor"]?.state == .installed
-        async let antigravityResult: GeminiUsage? = antigravityInstalled ? await fetchAntigravityUsage() : nil
-        async let codexResult: CodexUsage? = codexInstalled ? await fetchCodexUsage() : nil
-        async let cursorResult: CursorUsage? = cursorInstalled ? await fetchCursorUsage() : nil
+        async let antigravityResult: GeminiUsage? = antigravityInstalled
+            ? await withRetryOnError(fetchAntigravityUsage, errorOf: { $0.error }) : nil
+        async let codexResult: CodexUsage? = codexInstalled
+            ? await withRetryOnError(fetchCodexUsage, errorOf: { $0.error }) : nil
+        async let cursorResult: CursorUsage? = cursorInstalled
+            ? await withRetryOnError(fetchCursorUsage, errorOf: { $0.error }) : nil
         let (agyResult, codexRes, cursorRes) = await (antigravityResult, codexResult, cursorResult)
 
         if let result = agyResult {
@@ -127,6 +148,21 @@ final class UsageService: ObservableObject {
             return
         }
         claude = data
+    }
+
+    /// The PTY-driven providers (Antigravity/Codex/Cursor) time their own
+    /// input off idle-detection heuristics against a real interactive CLI —
+    /// a slow machine, a cold-start network round-trip, or a redraw
+    /// landing at the wrong moment can race that and come back with a
+    /// genuine parse/timeout error even though the CLI itself is perfectly
+    /// installed and signed in. That's a different situation from "not
+    /// installed"/"not signed in", which come back with `error == nil` and
+    /// are never retried here — only an actual `error` gets a second
+    /// attempt, once, before it's surfaced as a real failure.
+    private func withRetryOnError<T>(_ fetch: () async -> T?, errorOf: (T) -> String?) async -> T? {
+        guard let first = await fetch() else { return nil }
+        guard errorOf(first) != nil else { return first }
+        return await fetch() ?? first
     }
 
     private func fetchAntigravityUsage() async -> GeminiUsage? {
@@ -232,10 +268,13 @@ final class UsageService: ObservableObject {
 
     /// Detection comes straight off each `Provider`'s own `loginCommand` via
     /// `which` — no separate lookup table to keep in sync with `Provider.all`
-    /// as providers are added.
-    private func detectOtherProviders() async -> [String: ProviderStatus] {
+    /// as providers are added. Claude included: it gets the same
+    /// installed/notInstalled baseline as everyone else here, which
+    /// `refresh()` then refines using the real fetch result the same way
+    /// it already does for the others.
+    private func detectProviders() async -> [String: ProviderStatus] {
         var result: [String: ProviderStatus] = [:]
-        for provider in Provider.all where provider.id != "claude" {
+        for provider in Provider.all {
             // `loginCommand` can be more than a bare binary name (Cursor's
             // is "cursor-agent login") — `which` needs just the binary, so
             // this takes the first token rather than assuming the whole
