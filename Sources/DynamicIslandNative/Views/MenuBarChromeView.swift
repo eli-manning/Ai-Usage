@@ -17,6 +17,7 @@ struct MenuBarChromeView: View {
     let claude: ClaudeUsage
     let antigravity: GeminiUsage?
     let codex: CodexUsage?
+    let cursor: CursorUsage?
     let providerStatus: [String: ProviderStatus]
     let currentProviderIdx: Int
     let panelSize: CGSize
@@ -105,6 +106,11 @@ struct MenuBarChromeView: View {
         return codex?.primaryPct
     }
 
+    private var cursorPillPct: Int? {
+        guard activeProvider.id == "cursor", activeStatus.state == .loggedIn else { return nil }
+        return cursor?.primaryPct
+    }
+
     @ViewBuilder private var percentageLabel: some View {
         if isClaudeActive, let session = claude.session {
             Text("\(session)%")
@@ -117,6 +123,11 @@ struct MenuBarChromeView: View {
                 .foregroundColor(Format.statusColor(pct))
                 .fixedSize()
         } else if let pct = codexPillPct {
+            Text("\(pct)%")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Format.statusColor(pct))
+                .fixedSize()
+        } else if let pct = cursorPillPct {
             Text("\(pct)%")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(Format.statusColor(pct))

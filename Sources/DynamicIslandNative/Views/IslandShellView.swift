@@ -31,7 +31,7 @@ struct IslandShellView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            MenuBarChromeView(claude: usage.claude, antigravity: usage.antigravity, codex: usage.codex, providerStatus: usage.providers,
+            MenuBarChromeView(claude: usage.claude, antigravity: usage.antigravity, codex: usage.codex, cursor: usage.cursor, providerStatus: usage.providers,
                               currentProviderIdx: currentProviderIdx, panelSize: canvasSize, isExpanded: isExpanded)
 
             // No separate bump shape — that was a second black rectangle
