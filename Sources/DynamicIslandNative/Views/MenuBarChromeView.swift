@@ -16,6 +16,7 @@ import SwiftUI
 struct MenuBarChromeView: View {
     let claude: ClaudeUsage
     let antigravity: GeminiUsage?
+    let codex: CodexUsage?
     let providerStatus: [String: ProviderStatus]
     let currentProviderIdx: Int
     let panelSize: CGSize
@@ -87,12 +88,6 @@ struct MenuBarChromeView: View {
             BrandIconView(d: activeProvider.icon, size: 12)
         }
         .frame(width: 19, height: 19)
-        .overlay(
-            Circle()
-                .fill(dotColor)
-                .frame(width: 6, height: 6)
-                .offset(x: 7, y: 7)
-        )
     }
 
     /// Antigravity's "right now" figure for the pill, same role Claude's
@@ -105,16 +100,9 @@ struct MenuBarChromeView: View {
         return antigravity?.fiveHourPct ?? antigravity?.weeklyPct
     }
 
-    private var dotColor: Color {
-        if isClaudeActive {
-            if claude.session == nil && claude.weekly == nil { return Color(hex: "555555") }
-            return Format.statusHex(max(claude.session ?? 0, claude.weekly ?? 0))
-        }
-        if let pct = antigravityPillPct {
-            return Format.statusHex(pct)
-        }
-        if case .error = activeStatus.state { return Color(hex: "d1685f") }
-        return Color(hex: "555555")
+    private var codexPillPct: Int? {
+        guard activeProvider.id == "codex", activeStatus.state == .loggedIn else { return nil }
+        return codex?.primaryPct
     }
 
     @ViewBuilder private var percentageLabel: some View {
@@ -124,6 +112,11 @@ struct MenuBarChromeView: View {
                 .foregroundColor(Format.statusColor(session))
                 .fixedSize()
         } else if let pct = antigravityPillPct {
+            Text("\(pct)%")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Format.statusColor(pct))
+                .fixedSize()
+        } else if let pct = codexPillPct {
             Text("\(pct)%")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(Format.statusColor(pct))
