@@ -84,11 +84,7 @@ struct MenuBarChromeView: View {
     }
 
     private var badge: some View {
-        ZStack {
-            Circle().fill(activeProvider.color.opacity(0.3))
-            BrandIconView(d: activeProvider.icon, size: 12)
-        }
-        .frame(width: 19, height: 19)
+        ProviderBadgeView(provider: activeProvider)
     }
 
     /// Antigravity's "right now" figure for the pill, same role Claude's
@@ -111,33 +107,13 @@ struct MenuBarChromeView: View {
         return cursor?.primaryPct
     }
 
-    @ViewBuilder private var percentageLabel: some View {
-        if isClaudeActive, let session = claude.session {
-            Text("\(session)%")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Format.statusColor(session))
-                .fixedSize()
-        } else if let pct = antigravityPillPct {
-            Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Format.statusColor(pct))
-                .fixedSize()
-        } else if let pct = codexPillPct {
-            Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Format.statusColor(pct))
-                .fixedSize()
-        } else if let pct = cursorPillPct {
-            Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Format.statusColor(pct))
-                .fixedSize()
-        } else {
-            Text(compactLabel)
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundColor(.white.opacity(0.45))
-                .fixedSize()
-        }
+    private var activePct: Int? {
+        guard isClaudeActive else { return antigravityPillPct ?? codexPillPct ?? cursorPillPct }
+        return claude.session
+    }
+
+    private var percentageLabel: some View {
+        ProviderPercentageLabel(pct: activePct, fallbackText: compactLabel)
     }
 
     private var compactLabel: String {

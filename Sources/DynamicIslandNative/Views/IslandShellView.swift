@@ -20,6 +20,7 @@ import SwiftUI
 struct IslandShellView: View {
     @ObservedObject var usage: UsageService
     let onResize: (CGSize) -> Void
+    let onOpenSettings: () -> Void
 
     @State private var canvasSize: CGSize = NotchGeometry.compactSize()
     @State private var isExpanded = false
@@ -41,7 +42,7 @@ struct IslandShellView: View {
             // bar) is now the only thing that appears, with its own top
             // half overlapping up into the bar for the fused look.
             if isExpanded {
-                RingView(usage: usage, currentProviderIdx: $currentProviderIdx, onSync: sync)
+                RingView(usage: usage, currentProviderIdx: $currentProviderIdx, onSync: sync, onOpenSettings: onOpenSettings)
                     .position(x: canvasSize.width / 2, y: barHeight + RingGeometry.height / 2)
                     .transition(.opacity.combined(with: .scale(scale: 0.55, anchor: .top)))
             }

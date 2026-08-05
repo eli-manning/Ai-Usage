@@ -23,10 +23,25 @@ final class NotchPanel: NSPanel {}
 @MainActor
 final class PanelController: NSObject {
     private var panel: NotchPanel!
-    private let usage = UsageService()
+    private let usage: UsageService
+    private let onOpenSettings: () -> Void
     private var globalClickMonitor: Any?
 
+    init(usage: UsageService, onOpenSettings: @escaping () -> Void) {
+        self.usage = usage
+        self.onOpenSettings = onOpenSettings
+    }
+
+    /// Shows the fan-style panel, building it on first use and just
+    /// re-ordering it front on subsequent calls (switching styles in
+    /// Settings toggles `show()`/`hide()` back and forth rather than
+    /// tearing the panel down each time).
     func show() {
+        guard panel == nil else {
+            panel.orderFrontRegardless()
+            return
+        }
+
         let initialSize = NotchGeometry.compactSize()
         panel = NotchPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
@@ -48,9 +63,11 @@ final class PanelController: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         panel.isMovable = false
 
-        let root = IslandShellView(usage: usage) { [weak self] size in
-            self?.resize(to: size)
-        }
+        let root = IslandShellView(
+            usage: usage,
+            onResize: { [weak self] size in self?.resize(to: size) },
+            onOpenSettings: onOpenSettings
+        )
         let hosting = NSHostingView(rootView: root)
         panel.contentView = hosting
 
@@ -60,6 +77,13 @@ final class PanelController: NSObject {
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             self?.handleOutsideClick(event)
         }
+    }
+
+    /// Orders the panel out without tearing it down — switching back to
+    /// this style later is just another `show()`, with the panel's own
+    /// state (whatever provider/stat was selected) intact.
+    func hide() {
+        panel?.orderOut(nil)
     }
 
     private func handleOutsideClick(_ event: NSEvent) {

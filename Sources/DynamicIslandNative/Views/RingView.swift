@@ -190,6 +190,7 @@ struct RingView: View {
     let usage: UsageService
     @Binding var currentProviderIdx: Int
     let onSync: () -> Void
+    let onOpenSettings: () -> Void
 
     // Tracked by id, not array index — the outer list gets reordered
     // (Session centered rather than first) and its length changes with
@@ -688,33 +689,11 @@ struct RingView: View {
     /// CLI's own install page in the browser. Installed but not signed in
     /// (or last fetch errored) → a real Terminal window running its login
     /// command, since these are interactive OAuth flows a background
-    /// `Process` can't drive.
+    /// `Process` can't drive. Shared with the pill style via
+    /// `ProviderActionHandler` so both styles run exactly the same command
+    /// for exactly the same state.
     private func handleStatusTap() {
-        switch activeStatus.state {
-        case .checking:
-            break
-        case .notInstalled:
-            if let command = activeProvider.installCommand {
-                runInTerminal(command)
-            } else if let urlString = activeProvider.installURL, let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-            }
-        case .installed, .error:
-            if let command = activeProvider.loginCommand {
-                runInTerminal(command)
-            }
-        case .loggedIn:
-            break
-        }
-    }
-
-    private func runInTerminal(_ command: String) {
-        let escaped = command.replacingOccurrences(of: "\"", with: "\\\"")
-        let script = "tell application \"Terminal\"\nactivate\ndo script \"\(escaped)\"\nend tell"
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = ["-e", script]
-        try? task.run()
+        ProviderActionHandler.handle(status: activeStatus, provider: activeProvider)
     }
 
     private func wedgeContent(_ w: WedgeLayout) -> some View {
@@ -789,9 +768,11 @@ struct RingView: View {
         // Hover no longer lives here at all — see `HoverCircle` in
         // `body`, a native fixed-geometry hover sensor that isn't affected
         // by this button's own resizing, or by anything else in the tree.
-        // The only way to quit now that there's no menu-bar status item
-        // (see AppDelegate) — right-click the hub.
+        // The only way to reach Settings or quit now that there's no
+        // menu-bar status item (see AppDelegate) — right-click the hub.
         .contextMenu {
+            Button("Settings…") { onOpenSettings() }
+            Divider()
             Button("Quit") { NSApp.terminate(nil) }
         }
     }

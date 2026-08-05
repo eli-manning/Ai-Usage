@@ -31,10 +31,10 @@ struct Provider: Identifiable {
         Provider(id: "claude", name: "Claude", color: Color(hex: "D97757"), icon: BrandIcon.claude,
                  hint: "Run `claude` and follow the sign-in prompt.",
                  installCommand: "npm install -g @anthropic-ai/claude-code", loginCommand: "claude"),
-        Provider(id: "antigravity", name: "Antigravity", color: Color(hex: "4E8CFF"), icon: BrandIcon.gemini,
+        Provider(id: "antigravity", name: "Gemini", color: Color(hex: "4E8CFF"), icon: BrandIcon.gemini,
                  hint: "Run `agy`, then sign in with Google.",
                  installCommand: "brew install --cask antigravity-cli", loginCommand: "agy"),
-        Provider(id: "codex", name: "Codex", color: Color(hex: "3ECF8E"), icon: BrandIcon.codex,
+        Provider(id: "codex", name: "ChatGPT", color: Color(hex: "3ECF8E"), icon: BrandIcon.codex,
                  hint: "Run `codex`, then `/status` for usage.",
                  installCommand: "npm i -g @openai/codex", loginCommand: "codex"),
         // The installer drops the binary in ~/.local/bin but — per its own
