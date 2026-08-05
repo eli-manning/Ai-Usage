@@ -7,6 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "DynamicIslandNative"
+        ),
+        .testTarget(
+            name: "DynamicIslandNativeTests",
+            dependencies: ["DynamicIslandNative"]
         )
     ]
 )
