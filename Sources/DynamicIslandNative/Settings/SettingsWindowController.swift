@@ -5,8 +5,8 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onClose: (() -> Void)?
 
-    init(preferences: AppPreferences) {
-        let view = SettingsView(preferences: preferences)
+    init(preferences: AppPreferences, authStore: AuthStore) {
+        let view = SettingsView(preferences: preferences, authStore: authStore)
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
         window.title = "Ai Usage Settings"
@@ -14,7 +14,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // `NSWindow(contentViewController:)` doesn't size itself from the
         // hosted SwiftUI view's own intrinsic size — without an explicit
         // content size the window collapses to just its title bar.
-        window.setContentSize(NSSize(width: 420, height: 260))
+        window.setContentSize(NSSize(width: 520, height: 390))
         window.center()
         window.isReleasedWhenClosed = false
 

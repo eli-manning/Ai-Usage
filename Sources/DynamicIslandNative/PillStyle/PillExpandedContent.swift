@@ -75,13 +75,22 @@ private struct PillProviderRow: View {
                 Spacer()
             }
         case .notConnected, .installed:
-            HStack {
-                Text("CONNECT THIS ACCOUNT IN SETTINGS")
-                    .font(PillTheme.pixelFont(size: 8.5, weight: .medium))
-                    .foregroundStyle(PillTheme.mutedText)
-                Spacer()
-                Button("SETTINGS", action: onOpenSettings)
-                    .buttonStyle(PillAccentButtonStyle(color: snapshot.provider.color))
+            if snapshot.provider.id == "cursor" {
+                HStack {
+                    Text("SUBSCRIPTION OAUTH ISN'T AVAILABLE")
+                        .font(PillTheme.pixelFont(size: 8.5, weight: .medium))
+                        .foregroundStyle(PillTheme.mutedText)
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Text("CONNECT THIS ACCOUNT IN SETTINGS")
+                        .font(PillTheme.pixelFont(size: 8.5, weight: .medium))
+                        .foregroundStyle(PillTheme.mutedText)
+                    Spacer()
+                    Button("SETTINGS", action: onOpenSettings)
+                        .buttonStyle(PillAccentButtonStyle(color: snapshot.provider.color))
+                }
             }
         case .failed(let message):
             HStack(spacing: 7) {
