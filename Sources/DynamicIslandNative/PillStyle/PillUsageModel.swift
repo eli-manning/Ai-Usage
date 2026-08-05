@@ -7,7 +7,7 @@ struct PillUsagePeriod: Identifiable {
     var label: String
     /// 0...1, clamped by the meter itself. `nil` when there's no number yet.
     var fractionUsed: Double?
-    var resetText: String?
+    var resetsAt: Date?
 }
 
 enum PillFetchState: Equatable {
@@ -77,17 +77,17 @@ enum PillUsageAdapter {
         if let session = claude.session {
             periods.append(PillUsagePeriod(
                 id: "session", label: "Session", fractionUsed: Double(session) / 100,
-                resetText: claude.sessionReset.map { "Resets \(Format.reset($0) ?? "")" }
+                resetsAt: ResetDateFormatting.parse(claude.sessionReset)
             ))
         }
         if let weekly = claude.weekly {
             periods.append(PillUsagePeriod(
                 id: "weekly", label: "Weekly", fractionUsed: Double(weekly) / 100,
-                resetText: claude.weeklyReset.map { "Resets \(Format.reset($0) ?? "")" }
+                resetsAt: ResetDateFormatting.parse(claude.weeklyReset)
             ))
         }
         if let credits = claude.credits, let pct = credits.pct {
-            periods.append(PillUsagePeriod(id: "credits", label: "Credits", fractionUsed: Double(pct) / 100, resetText: nil))
+            periods.append(PillUsagePeriod(id: "credits", label: "Credits", fractionUsed: Double(pct) / 100, resetsAt: nil))
         }
 
         guard periods.isEmpty else {
@@ -105,10 +105,10 @@ enum PillUsageAdapter {
         }
         var periods: [PillUsagePeriod] = []
         if let pct = g.fiveHourPct {
-            periods.append(PillUsagePeriod(id: "fiveHour", label: "5 Hour", fractionUsed: Double(pct) / 100, resetText: g.fiveHourReset))
+            periods.append(PillUsagePeriod(id: "fiveHour", label: "5 Hour", fractionUsed: Double(pct) / 100, resetsAt: ResetDateFormatting.parse(g.fiveHourReset)))
         }
         if let pct = g.weeklyPct {
-            periods.append(PillUsagePeriod(id: "weekly", label: "Weekly", fractionUsed: Double(pct) / 100, resetText: g.weeklyReset))
+            periods.append(PillUsagePeriod(id: "weekly", label: "Weekly", fractionUsed: Double(pct) / 100, resetsAt: ResetDateFormatting.parse(g.weeklyReset)))
         }
         return PillProviderSnapshot(provider: provider, state: periods.isEmpty ? .checking : .loaded, periods: periods)
     }
@@ -122,7 +122,7 @@ enum PillUsageAdapter {
                 id: limit.name,
                 label: limit.name.replacingOccurrences(of: " limit", with: "", options: .caseInsensitive),
                 fractionUsed: Double(limit.pctUsed) / 100,
-                resetText: limit.reset.map { "Resets \($0)" }
+                resetsAt: ResetDateFormatting.parse(limit.reset)
             )
         }
         return PillProviderSnapshot(provider: provider, state: .loaded, periods: periods)
@@ -132,9 +132,9 @@ enum PillUsageAdapter {
         guard status.state == .loggedIn, let c, let rows = c.rows, !rows.isEmpty else {
             return PillProviderSnapshot(provider: provider, state: fetchState(for: status), periods: [])
         }
-        let resetText = c.reset.map { "Resets \($0)" }
+        let resetsAt = ResetDateFormatting.parse(c.reset)
         let periods = rows.map { row in
-            PillUsagePeriod(id: row.name, label: row.name, fractionUsed: Double(row.pctUsed) / 100, resetText: resetText)
+            PillUsagePeriod(id: row.name, label: row.name, fractionUsed: Double(row.pctUsed) / 100, resetsAt: resetsAt)
         }
         return PillProviderSnapshot(provider: provider, state: .loaded, periods: periods)
     }

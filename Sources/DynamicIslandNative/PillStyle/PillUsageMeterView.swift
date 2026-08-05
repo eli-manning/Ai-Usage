@@ -19,8 +19,8 @@ struct PillUsageMeterView: View {
 
                 Spacer(minLength: 2)
 
-                if let resetText = period.resetText, !resetText.isEmpty {
-                    Text(resetText.uppercased())
+                if let resetsAt = period.resetsAt {
+                    Text("RESET \(ResetDateFormatting.display(resetsAt))")
                         .foregroundStyle(PillTheme.mutedText)
                         .lineLimit(1)
                 }

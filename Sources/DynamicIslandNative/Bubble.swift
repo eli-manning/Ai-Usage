@@ -114,11 +114,11 @@ struct Bubble: Identifiable {
         var list: [Bubble] = []
         if let pct = g.fiveHourPct {
             list.append(Bubble(id: "fiveHour", label: "5 Hour", color: color, icon: .symbol("clock.fill"),
-                                pct: pct, big: "\(pct)%", sub: g.fiveHourReset))
+                                pct: pct, big: "\(pct)%", sub: g.fiveHourReset.map { "Resets \(Format.reset($0) ?? $0)" }))
         }
         if let pct = g.weeklyPct {
             list.append(Bubble(id: "weekly", label: "Weekly", color: color, icon: .symbol("calendar"),
-                                pct: pct, big: "\(pct)%", sub: g.weeklyReset))
+                                pct: pct, big: "\(pct)%", sub: g.weeklyReset.map { "Resets \(Format.reset($0) ?? $0)" }))
         }
         return list
     }
@@ -135,7 +135,7 @@ struct Bubble: Identifiable {
             return Bubble(id: id, label: codexLimitLabel(limit.name), color: color,
                            icon: .symbol(id == "weekly" ? "calendar" : "clock.fill"),
                            pct: limit.pctUsed, big: "\(limit.pctUsed)%",
-                           sub: limit.reset.map { "Resets \($0)" })
+                           sub: limit.reset.map { "Resets \(Format.reset($0) ?? $0)" })
         }
     }
 
@@ -167,7 +167,7 @@ struct Bubble: Identifiable {
     /// its own.
     static func cursorMetrics(_ c: CursorUsage, color: Color) -> [Bubble] {
         guard let rows = c.rows else { return [] }
-        let sub = c.reset.map { "Resets \($0)" }
+        let sub = c.reset.map { "Resets \(Format.reset($0) ?? $0)" }
         return rows.map { row in
             Bubble(id: row.name.lowercased(), label: row.name, color: color,
                    icon: .symbol("gauge"),

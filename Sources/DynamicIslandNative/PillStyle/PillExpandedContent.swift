@@ -75,9 +75,11 @@ private struct PillProviderRow: View {
                 Spacer()
             }
         case .notConnected, .installed:
-            if snapshot.provider.id == "cursor" {
+            if case .unsupported = status.state {
                 HStack {
-                    Text("SUBSCRIPTION OAUTH ISN'T AVAILABLE")
+                    Text(snapshot.provider.id == "antigravity"
+                         ? "GOOGLE RETIRED INDIVIDUAL OAUTH"
+                         : "SUBSCRIPTION OAUTH ISN'T AVAILABLE")
                         .font(PillTheme.pixelFont(size: 8.5, weight: .medium))
                         .foregroundStyle(PillTheme.mutedText)
                     Spacer()

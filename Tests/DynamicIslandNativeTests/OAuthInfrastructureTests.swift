@@ -19,6 +19,14 @@ struct OAuthInfrastructureTests {
         })
     }
 
+    @Test func standardizesProviderResetDatesInLocalTime() throws {
+        let date = try #require(ResetDateFormatting.parse("2026-08-09T05:05:06Z"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(ResetDateFormatting.parse("2026-08-04T12:00:00Z"))
+        #expect(ResetDateFormatting.display(date, now: now, calendar: calendar) == "AUG 9, 5:05 AM")
+    }
+
     @Test func authSessionExpiresWithRefreshLeeway() {
         let expiring = AuthSession(
             provider: .claude,

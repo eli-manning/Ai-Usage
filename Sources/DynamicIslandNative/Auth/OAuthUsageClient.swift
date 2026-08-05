@@ -124,10 +124,18 @@ enum OAuthUsageClient {
         let response: LoadCodeAssistResponse
         do { response = try JSONDecoder().decode(LoadCodeAssistResponse.self, from: data) }
         catch { throw OAuthUsageError.invalidResponse("Gemini") }
-        guard let project = response.cloudAICompanionProject, !project.isEmpty else {
-            throw OAuthUsageError.unavailable("Gemini Code Assist isn't initialized for this Google account.")
+        if let project = response.cloudAICompanionProject, !project.isEmpty {
+            return project
         }
-        return project
+        if response.ineligibleTiers?.contains(where: { $0.reasonCode == "UNSUPPORTED_CLIENT" }) == true {
+            throw OAuthUsageError.unavailable(
+                "Google retired Gemini CLI OAuth for individual accounts; Antigravity OAuth isn't available to third-party apps."
+            )
+        }
+        if response.currentTier != nil {
+            throw OAuthUsageError.unavailable("This Gemini Code Assist tier requires a Google Cloud project.")
+        }
+        throw OAuthUsageError.unavailable("This Google account isn't eligible for Gemini Code Assist quota access.")
     }
 
     private static func makeRequest(
@@ -223,8 +231,21 @@ private struct ChatGPTUsageResponse: Decodable {
 }
 
 private struct LoadCodeAssistResponse: Decodable {
+    struct Tier: Decodable { let id: String? }
+    struct IneligibleTier: Decodable {
+        let reasonCode: String?
+        let reasonMessage: String?
+    }
+
     let cloudAICompanionProject: String?
-    enum CodingKeys: String, CodingKey { case cloudAICompanionProject = "cloudaicompanionProject" }
+    let currentTier: Tier?
+    let ineligibleTiers: [IneligibleTier]?
+
+    enum CodingKeys: String, CodingKey {
+        case cloudAICompanionProject = "cloudaicompanionProject"
+        case currentTier
+        case ineligibleTiers
+    }
 }
 
 private struct GeminiQuotaResponse: Decodable {

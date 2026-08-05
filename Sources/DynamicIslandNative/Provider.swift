@@ -51,8 +51,11 @@ enum Format {
     }
     static func reset(_ s: String?) -> String? {
         guard let s else { return nil }
-        var out = s
-        out = out.replacingOccurrences(of: #"\s*\([^)]*\)"#, with: "", options: .regularExpression)
-        return out.trimmingCharacters(in: .whitespaces)
+        if let date = ResetDateFormatting.parse(s) {
+            return ResetDateFormatting.display(date)
+        }
+        return s
+            .replacingOccurrences(of: #"\s*\([^)]*\)"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
     }
 }

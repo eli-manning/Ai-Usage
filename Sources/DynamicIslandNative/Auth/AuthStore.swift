@@ -34,6 +34,10 @@ final class AuthStore: ObservableObject {
     func isConnecting(_ provider: OAuthProvider) -> Bool { connectingProviders.contains(provider) }
 
     func connect(_ provider: OAuthProvider) {
+        guard provider != .gemini else {
+            lastError = "Google retired individual Gemini CLI OAuth; supported third-party Antigravity OAuth isn't available."
+            return
+        }
         guard let service = services[provider], !connectingProviders.contains(provider) else { return }
         lastError = nil
 

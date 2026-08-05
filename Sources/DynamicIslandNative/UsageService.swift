@@ -23,7 +23,7 @@ final class UsageService: ObservableObject {
         providers = [
             "claude": ProviderStatus(state: .installed),
             "codex": ProviderStatus(state: .installed),
-            "antigravity": ProviderStatus(state: .installed),
+            "antigravity": ProviderStatus(state: .unsupported(Self.geminiUnavailableMessage)),
             // Cursor has no supported consumer OAuth/subscription-usage API.
             "cursor": ProviderStatus(state: .unsupported("Cursor does not provide supported consumer subscription OAuth.")),
         ]
@@ -44,12 +44,12 @@ final class UsageService: ObservableObject {
 
         async let claudeResult = fetchClaude()
         async let chatGPTResult = fetchChatGPT()
-        async let geminiResult = fetchGemini()
-        let (newClaude, newChatGPT, newGemini) = await (claudeResult, chatGPTResult, geminiResult)
+        let (newClaude, newChatGPT) = await (claudeResult, chatGPTResult)
 
         applyClaude(newClaude)
         applyChatGPT(newChatGPT)
-        applyGemini(newGemini)
+        antigravity = nil
+        providers["antigravity"] = ProviderStatus(state: .unsupported(Self.geminiUnavailableMessage))
         providers["cursor"] = ProviderStatus(state: .unsupported("Cursor does not provide supported consumer subscription OAuth."))
         lastRefreshed = Date()
     }
@@ -63,12 +63,6 @@ final class UsageService: ObservableObject {
     private func fetchChatGPT() async -> AccountFetch<CodexUsage> {
         guard let session = await authStore.validSession(for: .chatGPT) else { return .disconnected }
         do { return .value(try await OAuthUsageClient.fetchChatGPT(session: session)) }
-        catch { return .failure(error.localizedDescription) }
-    }
-
-    private func fetchGemini() async -> AccountFetch<GeminiUsage> {
-        guard let session = await authStore.validSession(for: .gemini) else { return .disconnected }
-        do { return .value(try await OAuthUsageClient.fetchGemini(session: session)) }
         catch { return .failure(error.localizedDescription) }
     }
 
@@ -99,18 +93,8 @@ final class UsageService: ObservableObject {
         }
     }
 
-    private func applyGemini(_ result: AccountFetch<GeminiUsage>) {
-        switch result {
-        case .disconnected:
-            antigravity = nil
-            providers["antigravity"] = ProviderStatus(state: .installed)
-        case .failure(let message):
-            providers["antigravity"] = ProviderStatus(state: .error(message))
-        case .value(let value):
-            antigravity = value
-            providers["antigravity"] = ProviderStatus(state: .loggedIn)
-        }
-    }
+    private static let geminiUnavailableMessage =
+        "Google retired Gemini CLI OAuth for individual accounts; supported third-party Antigravity OAuth isn't available."
 }
 
 private enum AccountFetch<Value> {
