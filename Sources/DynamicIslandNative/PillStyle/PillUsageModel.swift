@@ -41,27 +41,30 @@ enum PillUsageAdapter {
     static func snapshots(from usage: UsageService) -> [PillProviderSnapshot] {
         Provider.all.map { provider in
             let status = usage.providers[provider.id] ?? ProviderStatus(state: .checking)
+            var snapshot: PillProviderSnapshot
             switch provider.id {
             case "claude":
-                return claudeSnapshot(provider, usage.claude)
+                snapshot = claudeSnapshot(provider, usage.claude, status)
             case "antigravity":
-                return antigravitySnapshot(provider, usage.antigravity, status)
+                snapshot = antigravitySnapshot(provider, usage.antigravity, status)
             case "codex":
-                return codexSnapshot(provider, usage.codex, status)
+                snapshot = codexSnapshot(provider, usage.codex, status)
             case "cursor":
-                return cursorSnapshot(provider, usage.cursor, status)
+                snapshot = cursorSnapshot(provider, usage.cursor, status)
             default:
-                return PillProviderSnapshot(provider: provider, state: fetchState(for: status), periods: [])
+                snapshot = PillProviderSnapshot(provider: provider, state: fetchState(for: status), periods: [])
             }
+            snapshot.accountEmail = usage.accountEmails[provider.id]
+            return snapshot
         }
     }
 
     private static func fetchState(for status: ProviderStatus) -> PillFetchState {
         switch status.state {
         case .checking: return .checking
-        case .notInstalled: return .notConnected
         case .installed: return .installed
         case .loggedIn: return .loaded
+        case .unsupported: return .notConnected
         case .error(let message): return .failed(message)
         }
     }
@@ -69,7 +72,7 @@ enum PillUsageAdapter {
     /// Claude has no separate `ProviderStatus` gate in the fan style either
     /// (see `RingView.outerBubbles`) — its own fields already say whether
     /// there's real data, an auth problem, or a plain fetch error.
-    private static func claudeSnapshot(_ provider: Provider, _ claude: ClaudeUsage) -> PillProviderSnapshot {
+    private static func claudeSnapshot(_ provider: Provider, _ claude: ClaudeUsage, _ status: ProviderStatus) -> PillProviderSnapshot {
         var periods: [PillUsagePeriod] = []
         if let session = claude.session {
             periods.append(PillUsagePeriod(
@@ -90,13 +93,10 @@ enum PillUsageAdapter {
         guard periods.isEmpty else {
             return PillProviderSnapshot(provider: provider, state: .loaded, periods: periods)
         }
-        if claude.errorType == "auth" {
-            return PillProviderSnapshot(provider: provider, state: .installed, periods: [])
-        }
         if let error = claude.error {
             return PillProviderSnapshot(provider: provider, state: .failed(error), periods: [])
         }
-        return PillProviderSnapshot(provider: provider, state: .checking, periods: [])
+        return PillProviderSnapshot(provider: provider, state: fetchState(for: status), periods: [])
     }
 
     private static func antigravitySnapshot(_ provider: Provider, _ g: GeminiUsage?, _ status: ProviderStatus) -> PillProviderSnapshot {

@@ -684,16 +684,15 @@ struct RingView: View {
         .allowsHitTesting(false)
     }
 
-    /// Not installed → a real Terminal window running its one-line install
-    /// command if it has one (e.g. `npm i -g @openai/codex`), otherwise the
-    /// CLI's own install page in the browser. Installed but not signed in
-    /// (or last fetch errored) → a real Terminal window running its login
-    /// command, since these are interactive OAuth flows a background
-    /// `Process` can't drive. Shared with the pill style via
-    /// `ProviderActionHandler` so both styles run exactly the same command
-    /// for exactly the same state.
+    /// Account setup is browser OAuth managed in Settings; no provider CLI
+    /// is installed or launched from either visual style.
     private func handleStatusTap() {
-        ProviderActionHandler.handle(status: activeStatus, provider: activeProvider)
+        switch activeStatus.state {
+        case .checking, .loggedIn:
+            break
+        case .installed, .unsupported, .error:
+            onOpenSettings()
+        }
     }
 
     private func wedgeContent(_ w: WedgeLayout) -> some View {

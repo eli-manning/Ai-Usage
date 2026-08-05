@@ -118,36 +118,24 @@ struct ClaudeUsage: Codable {
     static let empty = ClaudeUsage()
 }
 
-/// Where a non-Claude provider stands, from "never seen it" to "actively
-/// failing." Kept separate from `installed: Bool` so the hub can show a
-/// distinct message for each rather than collapsing "not logged in" and
-/// "logged in but the fetch broke" into the same generic hint.
+/// Connection/fetch state for an account-backed provider.
 enum ProviderState: Codable, Equatable {
-    /// Detection hasn't run even once yet (app just launched, first
-    /// `refresh()` still in flight) — deliberately distinct from
-    /// `.notInstalled` so boot doesn't flash "not installed" for a
-    /// provider that's actually installed and signed in, just not checked
-    /// yet.
     case checking
-    case notInstalled
-    case installed      // binary/app detected, not signed in (or not wired up yet)
+    case installed      // account can be connected in Settings
     case loggedIn        // authenticated; usage data may still be pending
+    case unsupported(String)
     case error(String)   // signed in (or was) but the last fetch failed
 }
 
 struct ProviderStatus: Codable {
     var state: ProviderState
 
-    /// Hub copy for this state. `installHint` is the provider's own
-    /// `Provider.hint` (e.g. "Run `gemini`, then `/stats model`") so the
-    /// not-installed message stays provider-specific without every call
-    /// site having to know it.
-    func message(installHint: String) -> String {
+    func message(installHint _: String) -> String {
         switch state {
         case .checking: return "Checking…"
-        case .notInstalled: return "Not installed. \(installHint)"
-        case .installed: return "Detected — not signed in yet."
-        case .loggedIn: return "Signed in — not wired up yet."
+        case .installed: return "Connect this account in Settings."
+        case .loggedIn: return "Connected."
+        case .unsupported(let msg): return msg
         case .error(let msg): return "Error: \(msg)"
         }
     }
@@ -157,9 +145,9 @@ struct ProviderStatus: Codable {
     var shortLabel: String {
         switch state {
         case .checking: return "…"
-        case .notInstalled: return "n/a"
         case .installed: return "sign in"
         case .loggedIn: return "…"
+        case .unsupported: return "n/a"
         case .error: return "error"
         }
     }
@@ -169,9 +157,9 @@ struct ProviderStatus: Codable {
     var actionLabel: String {
         switch state {
         case .checking: return "Checking"
-        case .notInstalled: return "Install"
         case .installed: return "Sign In"
-        case .loggedIn: return "Soon"
+        case .loggedIn: return "Connected"
+        case .unsupported: return "Unavailable"
         case .error: return "Retry"
         }
     }
@@ -179,9 +167,9 @@ struct ProviderStatus: Codable {
     var actionIcon: String {
         switch state {
         case .checking: return "ellipsis.circle"
-        case .notInstalled: return "arrow.down.circle"
         case .installed: return "person.crop.circle.badge.questionmark"
         case .loggedIn: return "checkmark.circle"
+        case .unsupported: return "nosign"
         case .error: return "exclamationmark.triangle"
         }
     }

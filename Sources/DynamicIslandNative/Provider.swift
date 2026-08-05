@@ -6,48 +6,16 @@ struct Provider: Identifiable {
     var color: Color
     var icon: String
     var hint: String = ""
-    /// What "not installed" runs in a real Terminal window, for CLIs
-    /// installable with a single package-manager command — preferred over
-    /// `installURL` when both are set, since it actually installs the thing
-    /// instead of just handing the user a docs page to read and act on
-    /// themselves.
-    var installCommand: String? = nil
-    /// Where "not installed" sends the user when there's no one-line
-    /// `installCommand` — the CLI's own install page.
-    var installURL: String? = nil
-    /// What "installed, not signed in" runs in a real Terminal window —
-    /// these CLIs' auth flows are interactive, so a background `Process`
-    /// can't drive them; the tap has to hand off to an actual terminal.
-    var loginCommand: String? = nil
 
     static let all: [Provider] = [
-        // Claude's own ring/pill never actually consult these — `RingView`
-        // always renders `claudeMetrics` regardless of sign-in state, so
-        // there's no "Install"/"Sign In" action wedge for it in practice.
-        // Filled in anyway so the fallback path (`handleStatusTap`,
-        // `ProviderStatus.message`) isn't silently broken for Claude if
-        // that ever changes, or on a machine where `claude` genuinely isn't
-        // set up yet.
         Provider(id: "claude", name: "Claude", color: Color(hex: "D97757"), icon: BrandIcon.claude,
-                 hint: "Run `claude` and follow the sign-in prompt.",
-                 installCommand: "npm install -g @anthropic-ai/claude-code", loginCommand: "claude"),
+                 hint: "Connect your Claude subscription in Settings."),
         Provider(id: "antigravity", name: "Gemini", color: Color(hex: "4E8CFF"), icon: BrandIcon.gemini,
-                 hint: "Run `agy`, then sign in with Google.",
-                 installCommand: "brew install --cask antigravity-cli", loginCommand: "agy"),
+                 hint: "Connect your Google account in Settings."),
         Provider(id: "codex", name: "ChatGPT", color: Color(hex: "3ECF8E"), icon: BrandIcon.codex,
-                 hint: "Run `codex`, then `/status` for usage.",
-                 installCommand: "npm i -g @openai/codex", loginCommand: "codex"),
-        // The installer drops the binary in ~/.local/bin but — per its own
-        // printed "Next Steps" — never adds that to PATH itself; it just
-        // tells the user to append the export line by hand. Chaining that
-        // append onto the install command (idempotent via grep -qxF, so
-        // reinstalling never duplicates the line) is what makes "Install"
-        // actually leave you with a working `cursor-agent`/`agent`, rather
-        // than one that only works after a manual PATH fix.
+                 hint: "Connect your ChatGPT subscription in Settings."),
         Provider(id: "cursor", name: "Cursor", color: Color(hex: "8B7CF6"), icon: BrandIcon.cursor,
-                 hint: "Run `cursor-agent`, then `/usage` for usage.",
-                 installCommand: #"curl -fsSL https://cursor.com/install | bash && (grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc)"#,
-                 loginCommand: "cursor-agent login"),
+                 hint: "Cursor does not provide supported consumer subscription OAuth."),
     ]
 }
 

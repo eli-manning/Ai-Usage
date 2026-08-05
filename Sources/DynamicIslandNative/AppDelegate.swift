@@ -6,7 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // One shared `UsageService` — both styles below just render whatever it
     // publishes, so switching styles in Settings never re-fetches or shows
     // different numbers.
-    private let usage = UsageService()
+    private let authStore = AuthStore()
+    private lazy var usage = UsageService(authStore: authStore)
     private let preferences = AppPreferences()
 
     private lazy var fanController = PanelController(usage: usage, onOpenSettings: { [weak self] in self?.showSettings() })
@@ -16,6 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // no Dock icon, menu-bar-only app
+
+        authStore.onChange = { [weak self] in
+            Task { await self?.usage.refresh() }
+        }
+        authStore.onManualAuthRequested = { [weak self] in
+            self?.showSettings()
+        }
 
         // No NSStatusItem — the app has no icon in the real menu bar at
         // all now, just its own bump/fan (or pill) living over the notch.
@@ -39,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSettings() {
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(preferences: preferences)
+            settingsWindowController = SettingsWindowController(preferences: preferences, authStore: authStore)
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
