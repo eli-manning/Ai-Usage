@@ -24,12 +24,51 @@ IDLE_QUIET_S = 0.8  # no new bytes for this long => screen considered settled
 MIN_ELAPSED_S = 1.0  # ignore idle detection until at least this much has elapsed (startup animation)
 
 
+class _Terminated(Exception):
+    pass
+
+
+def _handle_sigterm(signum, frame):
+    raise _Terminated()
+
+
+# A CLI that's authenticated and running its own background sync/refresh
+# loop (observed with agy — see agy-pty-wrapper.py) may not exit reliably
+# on SIGTERM. SIGKILL can't be caught/blocked/ignored, so escalate to it if
+# SIGTERM hasn't reaped the process within a short grace period.
+def _kill_and_reap(pid):
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        try:
+            if os.waitpid(pid, os.WNOHANG)[0] == pid:
+                return
+        except OSError:
+            return
+        time.sleep(0.05)
+    try:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+    except OSError:
+        pass
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(1)
 
     claude_path = sys.argv[1]
     command = sys.argv[2] if len(sys.argv) > 2 else "/usage"
+    # Node kills this wrapper with SIGTERM on a stall (see main.js's
+    # doneTimeout). Python's default SIGTERM disposition terminates the
+    # process immediately without running `finally` blocks, which orphaned
+    # the forked claude child below instead of ever reaching the
+    # os.kill(pid) cleanup — this handler turns SIGTERM into a normal
+    # exception so the existing try/finally still runs.
+    signal.signal(signal.SIGTERM, _handle_sigterm)
 
     master, slave = pty.openpty()
 
@@ -75,61 +114,60 @@ def main():
     trust_answered = False
 
     try:
-        while True:
-            now = time.time()
-            if (now - start_time) > timeout:
-                break
-
-            r, _, _ = select.select([master], [], [], 0.1)
-            if r:
-                try:
-                    data = os.read(master, 4096)
-                    if not data:
-                        break
-
-                    buf += data
-                    last_data_time = time.time()
-                    sys.stdout.buffer.write(data)
-                    sys.stdout.buffer.flush()
-
-                    # Auto-answer Claude's directory trust prompt
-                    # "safety check" has ANSI sequences between words so match on "safety" alone
-                    if not trust_answered and b'safety' in buf.lower():
-                        trust_answered = True
-                        time.sleep(0.1)
-                        try:
-                            os.write(master, b'\r')
-                        except OSError:
-                            pass
-                        last_data_time = time.time()  # don't treat the trust prompt as "settled"
-                except OSError:
+        try:
+            while True:
+                now = time.time()
+                if (now - start_time) > timeout:
                     break
 
-            # Once the screen stops changing, give it a moment more (in case a
-            # trust prompt was just accepted) then stop.
-            now = time.time()
-            idle_for = now - last_data_time
-            elapsed = now - start_time
-            if elapsed > MIN_ELAPSED_S and idle_for > IDLE_QUIET_S:
-                break
+                r, _, _ = select.select([master], [], [], 0.1)
+                if r:
+                    try:
+                        data = os.read(master, 4096)
+                        if not data:
+                            break
 
-            # If the child process has already exited, stop reading
-            if os.waitpid(pid, os.WNOHANG)[0] != 0:
-                break
+                        buf += data
+                        last_data_time = time.time()
+                        sys.stdout.buffer.write(data)
+                        sys.stdout.buffer.flush()
 
-    finally:
-        # Cleanup
-        try:
-            os.close(master)
-        except OSError:
-            pass
+                        # Auto-answer Claude's directory trust prompt
+                        # "safety check" has ANSI sequences between words so match on "safety" alone
+                        if not trust_answered and b'safety' in buf.lower():
+                            trust_answered = True
+                            time.sleep(0.1)
+                            try:
+                                os.write(master, b'\r')
+                            except OSError:
+                                pass
+                            last_data_time = time.time()  # don't treat the trust prompt as "settled"
+                    except OSError:
+                        break
 
-        try:
+                # Once the screen stops changing, give it a moment more (in case a
+                # trust prompt was just accepted) then stop.
+                now = time.time()
+                idle_for = now - last_data_time
+                elapsed = now - start_time
+                if elapsed > MIN_ELAPSED_S and idle_for > IDLE_QUIET_S:
+                    break
+
+                # If the child process has already exited, stop reading
+                if os.waitpid(pid, os.WNOHANG)[0] != 0:
+                    break
+
+        finally:
+            # Cleanup
+            try:
+                os.close(master)
+            except OSError:
+                pass
+
             # Ensure the Claude process is killed
-            os.kill(pid, signal.SIGTERM)
-            os.waitpid(pid, 0)
-        except OSError:
-            pass
+            _kill_and_reap(pid)
+    except _Terminated:
+        pass
 
 
 if __name__ == "__main__":
