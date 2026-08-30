@@ -1,0 +1,106 @@
+
+[?25l[?5W[?2004h[>4;2m[=1;1u[?u[J
+[5C    
+[6D        
+[8D        
+[8D        
+             
+
+ Welcome to the Antigravity CLI. You are currently not signed in.
+
+ ⣷  Signing in... ⣯  ⣟  ⡿  ⢿  ⣻  ⣽  ⣾  ⣷  ⣯  ⣟  ⡿  ⢿  ⣻  ⣽  ⣾ [0 q[8A               Antigravity CLI 1.1.22
+                  eli.patrick.manning@gmail.com
+                  Gemini 3.7 Flash (High)
+                  ~
+              
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                                                                                                                                  Gemini 3.7 Flash · high[2A[2C[?25h[?25l/us
+
+> /usage                                                     View model quota usage[K
+  /flutter:dart-use-ffigen                                   Guide agents to use `package:ffigen` to automatically generate FFI bindings instead of writing them manually. Use this skill when a tas...[K
+  /flutter:flutter-use-http-package                          Use the `http` package to execute GET, POST, PUT, or DELETE requests. Use when you need to fetch from or send data to a REST API.[K
+  /flutter:dart-use-pattern-matching                         Use switch expressions and pattern matching where appropriate[K
+  /flutter:dart-use-primary-constructors                     Help users write syntactically and semantically correct primary constructors in Dart, and migrate/use the new constructor syntax, empty...[K
+   ↓ 56 more[K
+[K
+  ↑/↓ Navigate · enter Select · tab Complete[K
+? for shortcuts                                                                                                                                                                  Gemini 3.7 Flash · high[10A[5C[?25h[?25la
+
+[3C                                                View model quota usage[K
+[68Dflutter-use-http-package                      Use the `http` package to execute GET, POST, PUT, or DELETE requests. Use when you need to fetch from or send data to a REST API.[K
+	er:dart-use-pattern-matching                     Use switch expressions and pattern matching where appropriate[K
+[97Drimary-constructors                 Help users write syntactically and semantically correct primary constructors in Dart, and migrate/use the new constructor syntax, empty-bod...
+		setup-ffi-assets                         Guides agents in compiling and packaging C/C++ source code into dynamic or static libraries (Code Assets) using Dart's Native Assets hook s
+[5C27 
+
+
+esc to cancel  [10A[9D[?25h[?25l
+
+
+
+
+
+
+
+
+[J[9A[2C/usage
+
+[C                                  View model quota usage[K
+[29D       Use the `http` package to execute GET, POST, PUT, or DELETE requests. Use when you need to fetch from or send data to a REST API.[K
+		migrate-to-checks-package  Replace the usage of `expect` and similar functions from `package:matcher`[K
+to `package:checks` equivalents.[K
+		resolve-package-conflicts  Workflow for fixing package version conflicts. Use this when `pub get` fails due to incompatible package versions.[K
+[K
+  ↑/↓ Navigate · enter Select · tab Complete
+esc to cancel                                                                                                                                                                    Gemini 3.7 Flash · high[9A[8C[?25h[?25l[6A[39C (Google AI Pro)
+
+
+
+
+
+[55D[?25h[?25l
+
+[J[2A[2C[K
+
+? for shortcuts                                                                                                                                                                  Gemini 3.7 Flash · high[2A[2C[?25h[?25l[0 q
+
+└ Models & Quota[K
+[K
+  Account: eli.patrick.manning@gmail.com[K
+[K
+GEMINI MODELS[K
+  Models within this group: Gemini Flash, Gemini Pro[K
+[K
+  Weekly Limit Remaining[K
+    [██████████████████████████████████████████████████] 100.00%[K
+    Quota available[K
+[K
+  Five Hour Limit Remaining[K
+    [██████████████████████████████████████████████████] 100.00%[K
+    Quota available[K
+[K
+[K
+CLAUDE AND GPT MODELS[K
+  Models within this group: Claude Opus, Claude Sonnet, GPT-OSS[K
+[K
+  Weekly Limit Remaining[K
+    [██████████████████████████████████████████████████] 100.00%[K
+    Quota available[K
+[K
+  Five Hour Limit Remaining[K
+    [██████████████████████████████████████████████████] 100.00%[K
+    Quota available[K
+[K
+[K
+  │Within each group, models share a weekly limit and a 5-hour limit. Quota is[K
+  │consumed proportionally to the cost of the tokens. Thus, limits will last[K
+  │longer with shorter tasks or using more cost-effective models. The 5-hour[K
+  │limit smooths out aggregate demand to fairly distribute global capacity[K
+  │across all users, while your weekly limit is tied directly to your individual[K
+  │tier.[K
+[K
+  ↑/↓ Scroll · pgup/pgdown Page · ctrl+end Bottom · ctrl+home Top · esc Close[K
+[99C[1K Gemini 3.7 Flash · high

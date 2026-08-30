@@ -1,0 +1,50 @@
+[>1u]11;?[2K[G
+
+  Cursor Agent
+  v2026.07.23-e383d2b
+  Tip: Use /plan to iterate on an implementation plan before code changes.
+
+
+
+
+  → Plan, search, build anything
+
+
+  Auto
+  ~
+[?25l[?2004h]0;Cursor Agent[?2031h[?1004h[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G  → /usage
+
+
+  Auto
+  ~
+[2K[1A[2K[1A[2K[G   → /usage                    Show plan and on-demand usage
+     /context                  Show context usage breakdown
+[2K[G     /create-subagent          Create custom subagents for specialized AI tasks. Use when you want to create a new type of subagent, set up task-specific agents, configure code reviewers,…
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G  → Plan, search, build anything
+
+
+   → /usage                    Show plan and on-demand usage
+     /context                  Show context usage breakdown
+     /create-subagent          Create custom subagents for specialized AI tasks. Use when you want to create a new type of subagent, set up task-specific agents, configure code reviewers,…
+
+  Loading usage data...
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G  Auto
+  ~
+
+  Loading usage data...
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Usage • Free                                                                                                                                                                            Resets Sep 1
+ Monthly plan and on-demand usage
+
+ Category        Current             Usage
+ Included        0% used             ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   Auto          0% used             ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   API           0% used             ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+ On-Demand       Disabled            ————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+ On-demand usage is off
+
+ View in dashboard: ]8;;https://cursor.com/dashboard?tab=usagecursor.com/dashboard?tab=usage]8;;
+
+ Esc to close
+[?2004l

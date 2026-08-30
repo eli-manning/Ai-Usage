@@ -1,0 +1,7 @@
+# SwiftPM build products. The root .gitignore's `/.build` is anchored to the
+# repo root, so it doesn't reach this nested package.
+.build/
+
+# `make app` output — the assembled, signed .app bundle.
+build/
+dist/

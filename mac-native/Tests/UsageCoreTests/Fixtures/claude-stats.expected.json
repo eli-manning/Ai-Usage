@@ -1,0 +1,12 @@
+{
+  "favoriteModel": "Sonnet 5",
+  "totalTokens": "13.8b",
+  "sessions": 201,
+  "longestSession": "11d 5h 55m",
+  "activeDays": 78,
+  "totalDays": 205,
+  "longestStreak": "33 days",
+  "mostActiveDay": "Aug 24",
+  "currentStreak": "6 days",
+  "funFact": "Input 1.1m · Output 39.7m · Cache read 13.6b · Cache write 212.3m"
+}

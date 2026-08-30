@@ -1,0 +1,20 @@
+{
+  "signedIn": true,
+  "plan": "Free",
+  "reset": "Sep 1",
+  "rows": [
+    {
+      "name": "Included",
+      "pctUsed": 0
+    },
+    {
+      "name": "Auto",
+      "pctUsed": 0
+    },
+    {
+      "name": "API",
+      "pctUsed": 0
+    }
+  ],
+  "error": null
+}

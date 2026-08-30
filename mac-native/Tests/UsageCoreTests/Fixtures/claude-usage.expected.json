@@ -1,0 +1,33 @@
+{
+  "session": 69,
+  "weekly": 21,
+  "sessionReset": "10:30pm (America/Los_Angeles)",
+  "weeklyReset": "Sep 3 at 10pm (America/Los_Angeles)",
+  "weeklyPromo": "+50% weekly limits promo through Aug 31 · clau.de/cc-50-promo",
+  "credits": {
+    "pct": 98,
+    "spent": 39.48,
+    "total": 40,
+    "reset": "Sep 1 (America/Los_Angeles)"
+  },
+  "skills": [
+    {
+      "name": "/humanizer:humanizer",
+      "pct": 13
+    },
+    {
+      "name": "/wiss",
+      "pct": 1
+    },
+    {
+      "name": "humanizer",
+      "pct": 13
+    }
+  ],
+  "mcpServers": [
+    {
+      "name": "claude-in-chrome",
+      "pct": 39
+    }
+  ]
+}
