@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --border: #242424;
+    --dim: #2a2a2a;
+    --text: #e6e6e6;
+    --muted: #505050;
+    --accent: #CC785C;
+    --green: #4db876;
+    --yellow: #d4a843;
+    --red: #c95c5c;
+    --radius: 12px;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    color: var(--text);
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .titlebar {
+    height: 28px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+  }
+
+  .close-btn {
+    -webkit-app-region: no-drag;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--border);
+    background: none;
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .close-btn:hover { border-color: var(--text); color: var(--text); }
+
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 30px 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .step { display: none; flex-direction: column; height: 100%; }
+  .step.on { display: flex; }
+
+  .icon {
+    font-size: 34px;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    margin-bottom: 10px;
+  }
+
+  p {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .status-card {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .status-line { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .status-line .spinner {
+    width: 12px; height: 12px; flex-shrink: 0;
+    border: 2px solid var(--dim);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-line.ok { color: var(--green); }
+  .status-line.fail { color: var(--red); }
+  .status-detail { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .status-detail code {
+    background: var(--dim);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10.5px;
+  }
+
+  .toggle-row {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .toggle-label { font-size: 12.5px; }
+  .switch {
+    -webkit-app-region: no-drag;
+    width: 36px; height: 20px;
+    border-radius: 10px;
+    background: var(--dim);
+    border: none;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .switch.on { background: var(--accent); }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.15s;
+  }
+  .switch.on::after { transform: translateX(16px); }
+
+  .footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 30px 24px;
+    -webkit-app-region: no-drag;
+  }
+
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--dim); }
+  .dot.on { background: var(--accent); }
+
+  .btns { display: flex; gap: 8px; }
+
+  button.action {
+    -webkit-app-region: no-drag;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.action:hover { border-color: var(--muted); }
+  button.action.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.action.primary:hover { opacity: 0.9; }
+  button.action.ghost {
+    border-color: transparent;
+    color: var(--muted);
+  }
+  button.action.ghost:hover { color: var(--text); border-color: transparent; }
+
+  .provider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .provider-row + .provider-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .provider-info { flex: 1; min-width: 0; }
+  .provider-name { font-size: 12.5px; font-weight: 600; }
+  .provider-status { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .provider-status.is-on { color: var(--green); }
+  .provider-status.is-warn { color: var(--yellow); }
+  .login-btn {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .login-btn:hover { color: var(--text); border-color: var(--muted); }
+  .login-btn:disabled { opacity: 0.35; cursor: default; }
+  .login-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
+  .provider-row .switch { width: 32px; height: 18px; }
+  .provider-row .switch::after { width: 14px; height: 14px; }
+  .provider-row .switch.on::after { transform: translateX(14px); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="titlebar"><button class="close-btn" id="closeBtn">✕</button></div>
+
+  <div class="content">
+
+    <div class="step on" data-step="0">
+      <div class="body">
+        <div class="icon">👋</div>
+        <h1>Welcome to Claude Tray</h1>
+        <p>This puts your Claude Code session and weekly usage in the menu bar, so you don't need to open a browser to check. Setup takes a few seconds.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="1">
+      <div class="body">
+        <div class="icon">🔍</div>
+        <h1>Checking Claude Code</h1>
+        <p>We need Claude Code installed and logged in to show your usage.</p>
+        <div class="status-card" id="statusCard"></div>
+      </div>
+    </div>
+
+    <div class="step" data-step="2">
+      <div class="body">
+        <div class="icon">🧩</div>
+        <h1>Other providers</h1>
+        <p>Claude Tray can also track Antigravity, Codex, and Cursor if you use them. Turn on whichever you'd like, and sign in if you haven't already — you can change this anytime from Settings (right-click the tray icon).</p>
+        <div class="status-card" id="otherProvidersCard"></div>
+      </div>
+    </div>
+
+    <div class="step" data-step="3">
+      <div class="body">
+        <div class="icon">🚀</div>
+        <h1>Start automatically</h1>
+        <p>Launch Claude Tray in the background whenever you log in, so your usage is always one click away.</p>
+        <div class="toggle-row">
+          <span class="toggle-label">Launch at login</span>
+          <button class="switch on" id="loginToggle"></button>
+        </div>
+        <p style="margin-top:10px; font-size:10.5px;">You can change this anytime from the tray menu.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="4">
+      <div class="body">
+        <div class="icon">✅</div>
+        <h1>You're all set!</h1>
+        <p id="doneText">Look for the Claude icon in your menu bar. Click it anytime to see your usage.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="dots" id="dots"></div>
+    <div class="btns" id="btns"></div>
+  </div>
+</div>
+
+<script>
+  const TOTAL_STEPS = 5;
+  let step = 0;
+  let claudeOk = false;
+  let loginItemOn = true;
+  let latestData = null;
+  let latestPayload = null;
+  let providerEnabled = { claude: true, antigravity: true, codex: true, cursor: true };
+
+  // Antigravity/Codex/Cursor only — Claude gets its own dedicated step.
+  const OTHER_PROVIDERS = [
+    { id: 'antigravity', name: 'Antigravity' },
+    { id: 'codex', name: 'Codex' },
+    { id: 'cursor', name: 'Cursor' },
+  ];
+
+  function render() {
+    document.querySelectorAll('.step').forEach((el) => {
+      el.classList.toggle('on', Number(el.dataset.step) === step);
+    });
+
+    const dots = document.getElementById('dots');
+    dots.innerHTML = '';
+    for (let i = 0; i < TOTAL_STEPS; i++) {
+      const d = document.createElement('span');
+      d.className = 'dot' + (i === step ? ' on' : '');
+      dots.appendChild(d);
+    }
+
+    const btns = document.getElementById('btns');
+    if (step === 0) {
+      btns.innerHTML = `
+        <button class="action ghost" id="skipBtn">Skip</button>
+        <button class="action primary" id="nextBtn">Get Started →</button>`;
+    } else if (step === 1) {
+      const nextLabel = claudeOk ? 'Continue →' : 'Skip for now';
+      btns.innerHTML = `
+        <button class="action ghost" id="backBtn">Back</button>
+        <button class="action" id="recheckBtn">Recheck</button>
+        <button class="action primary" id="nextBtn">${nextLabel}</button>`;
+    } else if (step === 2 || step === 3) {
+      btns.innerHTML = `
+        <button class="action ghost" id="backBtn">Back</button>
+        <button class="action primary" id="nextBtn">Continue →</button>`;
+    } else {
+      btns.innerHTML = `<div></div><button class="action primary" id="finishBtn">Finish</button>`;
+    }
+
+    document.getElementById('nextBtn')?.addEventListener('click', () => goto(step + 1));
+    document.getElementById('backBtn')?.addEventListener('click', () => goto(step - 1));
+    document.getElementById('skipBtn')?.addEventListener('click', finish);
+    document.getElementById('finishBtn')?.addEventListener('click', finish);
+    document.getElementById('recheckBtn')?.addEventListener('click', recheck);
+  }
+
+  function goto(n) {
+    step = Math.max(0, Math.min(TOTAL_STEPS - 1, n));
+    if (step === 2) renderOtherProviders();
+    if (step === 4) {
+      const isMac = window.wizardAPI.platform === 'darwin';
+      document.getElementById('doneText').textContent =
+        `Look for the Claude icon in your ${isMac ? 'menu bar' : 'system tray'}. Click it anytime to see your usage.`;
+    }
+    render();
+  }
+
+  function otherProviderStatus(id) {
+    if (!providerEnabled[id]) return { text: 'Disabled', cls: '' };
+    const status = latestPayload?.providers?.[id];
+    const state = status ? status.state : 'checking';
+    if (state === 'loggedIn') return { text: 'Signed in', cls: 'is-on' };
+    if (state === 'installed') return { text: 'Installed, not signed in', cls: 'is-warn' };
+    if (state === 'error') return { text: status.message || 'Error', cls: 'is-warn' };
+    if (state === 'notInstalled') return { text: 'Not installed', cls: '' };
+    return { text: 'Checking…', cls: '' };
+  }
+
+  function renderOtherProviders() {
+    const card = document.getElementById('otherProvidersCard');
+    card.innerHTML = OTHER_PROVIDERS.map((p) => {
+      const enabled = !!providerEnabled[p.id];
+      const status = otherProviderStatus(p.id);
+      return `
+        <div class="provider-row">
+          <div class="provider-info">
+            <div class="provider-name">${p.name}</div>
+            <div class="provider-status ${status.cls}">${status.text}</div>
+          </div>
+          <button class="login-btn" data-login="${p.id}" ${enabled ? '' : 'disabled'}>Log in</button>
+          <button class="switch ${enabled ? 'on' : ''}" data-toggle="${p.id}"></button>
+        </div>`;
+    }).join('');
+
+    card.querySelectorAll('[data-toggle]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.toggle;
+        const next = !providerEnabled[id];
+        providerEnabled[id] = next;
+        renderOtherProviders();
+        const res = await window.wizardAPI.setProviderEnabled(id, next);
+        if (res && res.providerEnabled) providerEnabled = res.providerEnabled;
+        renderOtherProviders();
+      });
+    });
+    card.querySelectorAll('[data-login]').forEach((btn) => {
+      btn.addEventListener('click', () => window.wizardAPI.openProviderLogin(btn.dataset.login));
+    });
+  }
+
+  function renderStatus(data) {
+    const card = document.getElementById('statusCard');
+    if (!data || (data.session == null && data.weekly == null && !data.error)) {
+      claudeOk = false;
+      card.innerHTML = `<div class="status-line"><span class="spinner"></span>Looking for Claude Code…</div>`;
+      render();
+      return;
+    }
+    if (data.session != null || data.weekly != null) {
+      claudeOk = true;
+      card.innerHTML = `<div class="status-line ok">✓ Found Claude Code. You're logged in and ready to go.</div>`;
+      render();
+      return;
+    }
+    claudeOk = false;
+    let title, detail;
+    if (data.errorType === 'auth') {
+      title = "Claude Code is installed, but you're not logged in.";
+      detail = 'Run <code>claude</code> in a terminal and follow the login prompt, then click Recheck.';
+    } else if (data.errorType === 'offline') {
+      title = "You're offline.";
+      detail = 'Connect to the internet, then click Recheck.';
+    } else {
+      title = "Couldn't find Claude Code.";
+      detail = 'Install it with <code>npm i -g @anthropic-ai/claude-code</code>, then click Recheck.';
+    }
+    card.innerHTML = `
+      <div class="status-line fail">✕ ${title}</div>
+      <div class="status-detail">${detail}</div>`;
+    render();
+  }
+
+  async function recheck() {
+    const card = document.getElementById('statusCard');
+    card.innerHTML = `<div class="status-line"><span class="spinner"></span>Checking…</div>`;
+    const data = await window.wizardAPI.refresh();
+    latestPayload = data;
+    latestData = data.claude;
+    renderStatus(data.claude);
+  }
+
+  async function finish() {
+    if (loginItemOn) {
+      await window.wizardAPI.setLoginItem(true);
+    } else {
+      await window.wizardAPI.setLoginItem(false);
+    }
+    window.wizardAPI.finish();
+  }
+
+  document.getElementById('closeBtn').addEventListener('click', finish);
+
+  document.getElementById('loginToggle').addEventListener('click', (e) => {
+    loginItemOn = !loginItemOn;
+    e.target.classList.toggle('on', loginItemOn);
+  });
+
+  // Registered synchronously, before any other IPC round-trip, so there's no
+  // window where the app's initial background check could finish and
+  // broadcast its result before this listener exists — a "send" to a
+  // renderer with no listener attached yet is just dropped, not queued, so
+  // that race left the wizard stuck on the spinner until Recheck was
+  // clicked (which fetches and renders directly, sidestepping the broadcast
+  // entirely). pollStatus() below is a second, independent safety net in
+  // case some other timing gap causes a broadcast to go missing.
+  window.wizardAPI.onUsageUpdate((data) => {
+    latestPayload = data;
+    latestData = data.claude;
+    if (step === 1) renderStatus(data.claude);
+    if (step === 2) renderOtherProviders();
+  });
+
+  let statusPollTimer = null;
+  function pollStatus() {
+    if (statusPollTimer) return;
+    statusPollTimer = setInterval(async () => {
+      if (step !== 1 && step !== 2) return;
+      const data = await window.wizardAPI.getUsage();
+      latestPayload = data;
+      latestData = data.claude;
+      if (step === 1) renderStatus(data.claude);
+      if (step === 2) renderOtherProviders();
+    }, 1500);
+  }
+
+  (async () => {
+    loginItemOn = await window.wizardAPI.getLoginItem();
+    document.getElementById('loginToggle').classList.toggle('on', loginItemOn);
+
+    const settings = await window.wizardAPI.getSettings();
+    providerEnabled = settings.providerEnabled;
+
+    latestPayload = await window.wizardAPI.getUsage();
+    latestData = latestPayload.claude;
+    renderStatus(latestData);
+    pollStatus();
+  })();
+
+  render();
+</script>
+</body>
+</html>

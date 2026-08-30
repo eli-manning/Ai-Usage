@@ -1,0 +1,10 @@
+node_modules/
+dist/
+package-lock.json
+*.log
+.DS_Store
+dev-scratch/out/
+dev-scratch/preview-preload.js
+dev-scratch/*.raw.txt
+dev-scratch/*.clean.txt
+__pycache__/
