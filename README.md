@@ -94,16 +94,17 @@ mac-native/     the macOS app — Swift, no Electron, no Node, no python3
   Sources/UsageCore/    parsing, models, provider drivers, refresh loop
   Sources/AiUsage/      status item, popover, notch panel, settings, wizard
   Sources/ptydrive/     PTY helper that drives the provider CLIs
-os-menu/        the Electron app, still what Windows ships
+os-menu/        the Electron app, still what Windows ships, and the
+                JavaScript parsers the Swift ones are tested against
 chrome-extension/  the Claude.ai browser extension
-scripts/        the original JavaScript fetchers, kept as the reference
-                implementation the Swift parsers are tested against
 ```
 
 `UsageCore` is deliberately free of AppKit and SwiftUI so the parsers can be
 tested headlessly. `ParserEquivalenceTests` runs them against a fixture corpus
 captured from the real CLIs, so provider output drifting is caught by the test
-suite rather than by a user seeing a blank badge.
+suite rather than by a user seeing a blank badge. `make verify` goes further
+and diffs the Swift parsers against `os-menu`'s JavaScript originals on the
+same fixtures — the two implementations have to agree.
 
 `ptydrive` is a separate executable rather than code inside the app because
 `fork()` in a process that has already started AppKit's threads isn't
