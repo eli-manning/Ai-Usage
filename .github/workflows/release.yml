@@ -1,0 +1,155 @@
+name: Release
+
+# Fires on version tags only (e.g. `git tag v1.1.0 && git push --tags`) —
+# ordinary pushes to main run CI but never publish a release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp into the build (no leading v)'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # Resolved once and shared, so the two builds can't disagree about what
+  # version they're producing.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        # The tag is the source of truth for a tagged run; the manual input
+        # covers workflow_dispatch, where there is no tag to read.
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION"
+
+  # macOS ships the native Swift app (mac-native/), not Electron.
+  build-mac:
+    needs: version
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        working-directory: mac-native
+        # Never ship a build whose parsers no longer agree with the fixtures.
+        run: swift test
+
+      - name: Build artifacts
+        working-directory: mac-native
+        # Unsigned on purpose: signing for distribution needs a Developer ID
+        # certificate (paid Apple Developer Program), which this project does
+        # not have. The README documents the Gatekeeper prompt that results.
+        run: make dist VERSION=${{ needs.version.outputs.version }}
+
+      - name: Verify artifacts
+        working-directory: mac-native
+        run: |
+          set -euo pipefail
+          test -f dist/AI-Usage.dmg
+          test -f dist/AI-Usage.zip
+          # Prove the packaged bundle is intact rather than trusting that
+          # hdiutil exiting 0 means the app inside actually survived.
+          MP=$(hdiutil attach dist/AI-Usage.dmg -nobrowse -readonly | tail -1 | awk -F'\t' '{print $NF}')
+          plutil -lint "$MP/AI Usage.app/Contents/Info.plist"
+          STAMPED=$(plutil -extract CFBundleShortVersionString raw "$MP/AI Usage.app/Contents/Info.plist")
+          test "$STAMPED" = "${{ needs.version.outputs.version }}"
+          test -x "$MP/AI Usage.app/Contents/MacOS/ptydrive"
+          hdiutil detach "$MP" -quiet
+          echo "artifacts OK (version $STAMPED)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            mac-native/dist/AI-Usage.dmg
+            mac-native/dist/AI-Usage.zip
+          if-no-files-found: error
+
+  # Windows ships the Electron app (os-menu/) — the native rebuild is macOS
+  # only, so this stays the Windows implementation.
+  build-win:
+    needs: version
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Stamp version
+        working-directory: os-menu
+        shell: bash
+        # electron-builder reads the version from package.json, so the tag has
+        # to be written in before the build rather than passed as a flag.
+        run: |
+          set -euo pipefail
+          npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
+          node -e "console.log('package.json version:', require('./package.json').version)"
+
+      - name: Install dependencies
+        working-directory: os-menu
+        # `npm install`, not `npm ci` — package-lock.json is gitignored here,
+        # so there is no lockfile in the checkout for ci to consume.
+        run: npm install
+
+      - name: Build installer
+        working-directory: os-menu
+        run: npm run build:win
+
+      - name: Verify artifact
+        working-directory: os-menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -la dist
+          test -f dist/Claude-Tray.exe
+          echo "installer OK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: os-menu/dist/Claude-Tray.exe
+          if-no-files-found: error
+
+  # One job creates the release with every asset attached. The two builds
+  # therefore run in parallel and neither races the other to create it —
+  # which is the only reason the old workflow had to serialise them.
+  publish:
+    needs: [version, build-mac, build-win]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List assets
+        run: find artifacts -type f -print
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/macos/AI-Usage.dmg
+            artifacts/macos/AI-Usage.zip
+            artifacts/windows/Claude-Tray.exe

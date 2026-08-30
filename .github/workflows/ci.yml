@@ -1,0 +1,101 @@
+name: CI
+
+# Every push and PR that touches the app. Kept separate from `release.yml`
+# so a broken test fails fast on a branch, rather than only surfacing when a
+# tag is cut and the release is already half-published.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mac-native/**'
+      - 'os-menu/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'mac-native/**'
+      - 'os-menu/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  # A newer push to the same branch makes an in-flight run redundant.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The macOS app.
+  mac:
+    # macos-14+ runners are Apple Silicon, which is what the app targets.
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Test
+        working-directory: mac-native
+        # Includes ParserEquivalenceTests, which check the ported Swift
+        # parsers against the fixture corpus captured from the real CLIs —
+        # the contract that keeps this build honest as provider output drifts.
+        run: swift test
+
+      - name: Build app bundle
+        working-directory: mac-native
+        # Bundling is where the non-code failures live (a malformed
+        # Info.plist, an unsigned nested helper), so exercise it on every
+        # run instead of discovering it at release time.
+        run: make app
+
+      - name: Validate bundle
+        working-directory: mac-native
+        run: |
+          set -euo pipefail
+          APP="build/AI Usage.app"
+          plutil -lint "$APP/Contents/Info.plist"
+          test -x "$APP/Contents/MacOS/AI Usage"
+          # ptydrive must ship beside the app binary or every fetch fails at
+          # runtime with no helper to drive the provider CLIs.
+          test -x "$APP/Contents/MacOS/ptydrive"
+          codesign --verify --deep --strict "$APP"
+          echo "bundle OK"
+
+  # The Electron app, which is what Windows ships. Not a full installer build
+  # (that is slow and only matters at release time) — just enough to catch a
+  # syntax error or a broken dependency tree before it reaches a tag.
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: os-menu
+        run: npm install
+
+      - name: Syntax-check sources
+        working-directory: os-menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in *.js scripts/*.js; do
+            node --check "$f"
+            echo "ok $f"
+          done
+
+      - name: Check the PTY wrappers parse
+        working-directory: os-menu
+        shell: bash
+        # These drive the provider CLIs; a syntax error in one is a silent
+        # "no data" in the app rather than a crash, so check them explicitly.
+        run: |
+          set -euo pipefail
+          for f in *-pty-wrapper.py pty-wrapper.py; do
+            python -m py_compile "$f"
+            echo "ok $f"
+          done
