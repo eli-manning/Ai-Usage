@@ -30,6 +30,19 @@ public final class UsageService: ObservableObject {
     /// Bumped whenever settings change in a way the shells should redraw for.
     @Published public private(set) var settingsRevision = 0
 
+    /// Providers that the last drive proved are installed but signed out.
+    ///
+    /// Driving a signed-out CLI is not a no-op: `agy` (and `codex`, and
+    /// `cursor-agent`) responds to being launched by opening a browser tab for
+    /// its OAuth handoff, which the user then can't complete — the code has to
+    /// be pasted back into a terminal, and ours is a headless PTY nobody can
+    /// see. On the five-minute poll that means a new sign-in tab every five
+    /// minutes, forever. So once a drive tells us a provider is signed out, the
+    /// timer stops driving it; only an explicit user action (the Refresh menu
+    /// item, a Retry button, the wizard's Recheck, re-enabling it in Settings)
+    /// tries again, and a successful drive clears the flag.
+    private var signedOut: Set<String> = []
+
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
 
@@ -39,9 +52,9 @@ public final class UsageService: ObservableObject {
         // Nothing is `.checking` until we say so — an empty dictionary is what
         // lets a shell tell "haven't looked yet" apart from "looked, and it's
         // not installed".
-        Task { await refresh() }
+        Task { await refresh(manual: false) }
         timer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+            Task { @MainActor in await self?.refresh(manual: false) }
         }
     }
 
@@ -56,7 +69,11 @@ public final class UsageService: ObservableObject {
     /// second concurrent PTY drive contending over the same CLI session and
     /// auth state, which was a real contributor to intermittent
     /// "Could not find quota panel" failures.
-    public func refresh() async {
+    ///
+    /// `manual` distinguishes a user asking for this from the background poll.
+    /// Only the poll honours `signedOut`; a person pressing Refresh has
+    /// presumably just signed in, and is entitled to have us look again.
+    public func refresh(manual: Bool = true) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer {
@@ -64,8 +81,10 @@ public final class UsageService: ObservableObject {
             lastRefreshed = Date()
         }
 
-        async let claudeResult = Self.fetchClaudeOffMain(enabled: Settings.shared.isEnabled("claude"))
-        async let otherResults = Self.fetchOthersOffMain()
+        let skip = manual ? [] : signedOut
+        async let claudeResult = Self.fetchClaudeOffMain(
+            enabled: Settings.shared.isEnabled("claude") && !skip.contains("claude"))
+        async let otherResults = Self.fetchOthersOffMain(skipping: skip)
 
         let (claudeValue, others) = await (claudeResult, otherResults)
 
@@ -153,18 +172,22 @@ public final class UsageService: ObservableObject {
         }
     }
 
-    nonisolated private static func fetchOthersOffMain() async -> OtherResults {
+    nonisolated private static func fetchOthersOffMain(skipping skip: Set<String>) async -> OtherResults {
         let detected = await run { detect() }
         var results = OtherResults()
         results.detected = detected
 
-        // Only actually drive whichever CLIs detection found installed, and do
-        // those in parallel with each other since none depends on the others.
-        async let agy: GeminiUsage? = detected["antigravity"]?.state == .installed
+        // Only actually drive whichever CLIs detection found installed — and
+        // aren't already known to be signed out — and do those in parallel with
+        // each other since none depends on the others.
+        @Sendable func shouldDrive(_ id: String) -> Bool {
+            detected[id]?.state == .installed && !skip.contains(id)
+        }
+        async let agy: GeminiUsage? = shouldDrive("antigravity")
             ? await run { UsageFetcher.fetchAntigravity() } : nil
-        async let cdx: CodexUsage? = detected["codex"]?.state == .installed
+        async let cdx: CodexUsage? = shouldDrive("codex")
             ? await run { UsageFetcher.fetchCodex() } : nil
-        async let csr: CursorUsage? = detected["cursor"]?.state == .installed
+        async let csr: CursorUsage? = shouldDrive("cursor")
             ? await run { UsageFetcher.fetchCursor() } : nil
 
         let (a, c, u) = await (agy, cdx, csr)
@@ -192,6 +215,7 @@ public final class UsageService: ObservableObject {
             // an auth-type error means the CLI is there but not signed in.
             if data.errorType == "auth" {
                 providers["claude"] = ProviderStatus(state: .installed)
+                signedOut.insert("claude")
             } else if providers["claude"]?.state == .installed, let err = data.error {
                 providers["claude"] = ProviderStatus(state: .error(err), message: err)
             }
@@ -199,6 +223,7 @@ public final class UsageService: ObservableObject {
         }
 
         claude = data
+        signedOut.remove("claude")
         if data.session != nil || data.weekly != nil {
             providers["claude"] = ProviderStatus(state: .loggedIn, message: data.error)
             HistoryStore.shared.record(session: data.session, weekly: data.weekly)
@@ -212,6 +237,7 @@ public final class UsageService: ObservableObject {
             let hasCached = antigravity?.fiveHourPct != nil || antigravity?.weeklyPct != nil
             status["antigravity"] = Self.resolve(
                 error: result.error, signedIn: result.signedIn, hasCachedData: hasCached)
+            noteAuth("antigravity", signedIn: result.signedIn)
             if result.error == nil, result.signedIn != false {
                 var stored = result
                 stored.lastUpdated = Date()
@@ -225,6 +251,7 @@ public final class UsageService: ObservableObject {
             let hasCached = !(codex?.limits?.isEmpty ?? true)
             status["codex"] = Self.resolve(
                 error: result.error, signedIn: result.signedIn, hasCachedData: hasCached)
+            noteAuth("codex", signedIn: result.signedIn)
             if result.error == nil, result.signedIn != false {
                 var stored = result
                 stored.lastUpdated = Date()
@@ -238,6 +265,7 @@ public final class UsageService: ObservableObject {
             let hasCached = !(cursor?.rows?.isEmpty ?? true)
             status["cursor"] = Self.resolve(
                 error: result.error, signedIn: result.signedIn, hasCachedData: hasCached)
+            noteAuth("cursor", signedIn: result.signedIn)
             if result.error == nil, result.signedIn != false {
                 var stored = result
                 stored.lastUpdated = Date()
@@ -248,6 +276,18 @@ public final class UsageService: ObservableObject {
         }
 
         providers = status
+    }
+
+    /// Records what a drive just learned about a provider's sign-in state, so
+    /// the background poll can stop relaunching a CLI that will only open
+    /// another dead-end OAuth tab. `nil` means the drive failed for some other
+    /// reason and proved nothing either way, so the existing flag stands.
+    private func noteAuth(_ id: String, signedIn: Bool?) {
+        switch signedIn {
+        case false: signedOut.insert(id)
+        case true: signedOut.remove(id)
+        case nil: break
+        }
     }
 
     /// The shared rule for turning a fetch result into a status.

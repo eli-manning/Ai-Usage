@@ -4,24 +4,34 @@ A menu bar / system tray app for watching your AI coding quotas — Claude Code,
 Antigravity, Codex and Cursor — without opening a browser or burning a prompt
 to ask.
 
-**Download:**
+## Install
 
-| Platform | Link | Built from |
-|----------|------|------------|
-| macOS (Apple Silicon) | [AI-Usage.dmg](https://github.com/eli-manning/Ai-Usage/releases/latest/download/AI-Usage.dmg) | `mac-native/` — native Swift |
-| Windows | [Claude-Tray.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/Claude-Tray.exe) | `os-menu/` — Electron |
+**macOS (Apple Silicon)** — Homebrew:
+
+```sh
+brew install eli-manning/tap/ai-usage
+```
+
+Or download [AI-Usage.dmg](https://github.com/eli-manning/Ai-Usage/releases/latest/download/AI-Usage.dmg) and drag it to Applications.
+
+**Windows** — download [Claude-Tray.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/Claude-Tray.exe).
+
+| Platform | Built from |
+|----------|------------|
+| macOS (Apple Silicon) | `mac-native/` — native Swift |
+| Windows | `os-menu/` — Electron |
 
 macOS runs a native Swift rebuild: one process, no Electron, no Node, no
 python3. Windows runs the original Electron app, which is still the only
 implementation for that platform.
 
-> **First launch:** the app is unsigned, so macOS will refuse to open it.
-> After dragging it to Applications, go to **System Settings → Privacy &
-> Security**, scroll down, and click **Open Anyway**. If macOS instead says the
-> app *"is damaged and can't be opened"*, run
-> `xattr -cr "/Applications/AI Usage.app"` in Terminal and launch it again.
-> Signing this properly needs a paid Apple Developer ID, which this project
-> doesn't have.
+> **First launch:** the app is ad-hoc signed rather than notarized, so macOS
+> will refuse to open it the first time — however you installed it, Homebrew
+> included. Go to **System Settings → Privacy & Security**, scroll down, and
+> click **Open Anyway**. If macOS instead says the app *"is damaged and can't
+> be opened"*, run `xattr -cr "/Applications/AI Usage.app"` in Terminal and
+> launch it again. Signing this properly needs a paid Apple Developer ID,
+> which this project doesn't have.
 
 ## Two ways to display it
 
@@ -127,6 +137,17 @@ bundle's `Info.plist` and the Electron `package.json` alike.
 
 Ordinary pushes run `ci.yml` instead, which tests and validates without
 publishing anything.
+
+### Bumping the Homebrew cask
+
+The cask lives in [eli-manning/homebrew-tap](https://github.com/eli-manning/homebrew-tap)
+and pins the release asset by hash, so it needs a manual bump after each tag:
+
+```sh
+shasum -a 256 AI-Usage.zip          # from the new release's assets
+# edit Casks/ai-usage.rb: version + sha256, then
+brew style --cask Casks/ai-usage.rb
+```
 
 ### Building the Windows installer locally
 
