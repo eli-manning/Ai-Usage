@@ -283,7 +283,7 @@
       <div class="body">
         <div class="icon">✅</div>
         <h1>You're all set!</h1>
-        <p id="doneText">Look for the Claude icon in your menu bar. Click it anytime to see your usage.</p>
+        <p id="doneText">Look for the AI Usage icon in your menu bar. Click it anytime to see your usage.</p>
         <p id="donePin" style="margin-top:10px; font-size:10.5px;" hidden>Windows hides new tray icons by default. To keep it visible, open <b>Settings &rsaquo; Personalization &rsaquo; Taskbar &rsaquo; Other system tray icons</b> and switch <b>AI Usage</b> on.</p>
       </div>
     </div>
@@ -357,7 +357,7 @@
     if (step === 4) {
       const isMac = window.wizardAPI.platform === 'darwin';
       document.getElementById('doneText').textContent =
-        `Look for the Claude icon in your ${isMac ? 'menu bar' : 'system tray'}. Click it anytime to see your usage.`;
+        `Look for the AI Usage icon in your ${isMac ? 'menu bar' : 'system tray'}. Click it anytime to see your usage.`;
       // Windows tucks newly-registered tray icons into the overflow flyout, so
       // the icon we just told them to look for often isn't actually on screen.
       document.getElementById('donePin').hidden = isMac;
