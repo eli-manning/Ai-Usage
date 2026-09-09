@@ -20,6 +20,11 @@ Or download [AI-Usage.dmg](https://github.com/eli-manning/Ai-Usage/releases/late
 > — the app was renamed, so Windows treats the two as separate programs and
 > installs the new one alongside the old rather than over it.
 
+> **Can't see the tray icon?** Windows hides new ones by default — look behind
+> the **^** arrow. To pin it so it's always visible, open **Settings >
+> Personalization > Taskbar > Other system tray icons** and switch **AI Usage**
+> on.
+
 | Platform | Built from |
 |----------|------------|
 | macOS (Apple Silicon) | `mac-native/` — native Swift |

@@ -18,8 +18,13 @@ v2.0.1? Uninstall that first — Windows keys an installed program on its name,
 so it treats the two as unrelated and leaves you with both.
 
 It installs for your user account (no admin required) and launches
-automatically. The icon appears in the system tray at the bottom right; if it's
-hidden, click **^** and drag it into the visible area.
+automatically. The icon appears in the system tray at the bottom right.
+
+Windows hides newly-installed tray icons by default, so it will most likely be
+tucked away behind the **^** arrow. To pin it there permanently, open
+**Settings > Personalization > Taskbar > Other system tray icons** and switch
+**AI Usage** on. (Dragging it out of the **^** flyout onto the taskbar does the
+same thing.)
 
 ## Requirements
 
