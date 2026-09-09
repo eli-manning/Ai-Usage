@@ -3,7 +3,7 @@
 // CI has no Apple Developer ID cert, so code signing is disabled
 // (CSC_IDENTITY_AUTO_DISCOVERY=false) and the .app ships completely
 // unsigned. Modern macOS — especially on Apple Silicon — responds to a
-// fully unsigned app downloaded via a browser with "'Claude Tray' is
+// fully unsigned app downloaded via a browser with "'AI Usage' is
 // damaged and can't be opened", a hard block with no "Open Anyway" option
 // in System Settings (unlike the ordinary unidentified-developer warning).
 //

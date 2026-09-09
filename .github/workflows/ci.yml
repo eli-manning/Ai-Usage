@@ -112,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           APP="dist/win-unpacked"
-          test -f "$APP/Claude Tray.exe"
+          test -f "$APP/AI Usage.exe"
           # node-pty is the whole Windows fetch path; if asarUnpack stopped
           # covering it, every provider silently reports nothing.
           test -d "$APP/resources/app.asar.unpacked/node_modules/node-pty"

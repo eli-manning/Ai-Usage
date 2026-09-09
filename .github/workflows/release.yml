@@ -133,7 +133,7 @@ jobs:
         run: |
           set -euo pipefail
           ls -la dist
-          test -f dist/Claude-Tray.exe
+          test -f dist/AI-Usage-Setup.exe
           # electron-builder leaves the unpacked tree beside the installer;
           # checking it catches a config regression that the .exe existing does
           # not — a missing node-pty means every provider reports nothing.
@@ -143,7 +143,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: os-menu/dist/Claude-Tray.exe
+          path: os-menu/dist/AI-Usage-Setup.exe
           if-no-files-found: error
 
   # One job creates the release with every asset attached. The two builds
@@ -169,7 +169,7 @@ jobs:
           files: |
             artifacts/macos/AI-Usage.dmg
             artifacts/macos/AI-Usage.zip
-            artifacts/windows/Claude-Tray.exe
+            artifacts/windows/AI-Usage-Setup.exe
 
   # Point the Homebrew cask at the release that was just published. The cask
   # pins its download by hash, so without this `brew install` keeps handing

@@ -1,4 +1,4 @@
-# Claude Tray (`os-menu/`)
+# AI Usage — Electron (`os-menu/`)
 
 The Electron implementation, and what **Windows** ships. macOS has a native
 Swift rebuild in [`mac-native/`](../mac-native) instead — see the
@@ -11,7 +11,11 @@ parsing the screen that comes back.
 ## Download
 
 The Windows installer is attached to every release:
-[Claude-Tray.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/Claude-Tray.exe).
+[AI-Usage-Setup.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/AI-Usage-Setup.exe).
+
+Upgrading from **Claude Tray**, which is what this app was called before
+v2.0.1? Uninstall that first — Windows keys an installed program on its name,
+so it treats the two as unrelated and leaves you with both.
 
 It installs for your user account (no admin required) and launches
 automatically. The icon appears in the system tray at the bottom right; if it's
@@ -52,9 +56,9 @@ npm ci
 npm start            # run it
 npm test             # the Windows PTY driver's state machine
 
-npm run build:win    # → dist/Claude-Tray.exe   (needs Windows, or Wine)
-npm run build:mac    # → dist/Claude-Tray.dmg   (superseded by mac-native/)
-npm run build:linux  # → dist/Claude-Tray.AppImage
+npm run build:win    # → dist/AI-Usage-Setup.exe   (needs Windows, or Wine)
+npm run build:mac    # → dist/AI-Usage.dmg          (superseded by mac-native/)
+npm run build:linux  # → dist/AI-Usage.AppImage
 ```
 
 The app icon is generated, not hand-drawn — `build/icon.png` comes from
@@ -81,5 +85,5 @@ Claude Code is showing its directory-trust prompt. Run it once by hand:
 (Windows), and press **Enter** at the prompt.
 
 **Debug log**
-Source builds (`npm start`) write to `~/claude-tray-debug.log`. Packaged builds
+Source builds (`npm start`) write to `~/ai-usage-debug.log`. Packaged builds
 write nothing.

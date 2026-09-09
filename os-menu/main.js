@@ -18,7 +18,7 @@ const fs = require("fs");
 const { parseUsageOutput, parseStatsOutput, toCleanLines } = require("./usage-parser.js");
 const { ansiToLines, stripBoxChars } = require("./ansi-grid.js");
 
-const LOG_FILE = path.join(os.homedir(), "claude-tray-debug.log");
+const LOG_FILE = path.join(os.homedir(), "ai-usage-debug.log");
 function log(...args) {
   if (app.isPackaged) return;
   const line = `[${new Date().toISOString()}] ${args.join(" ")}\n`;
@@ -1063,14 +1063,14 @@ async function updateTrayTitle() {
     if (error && sPct == null && wPct == null) {
       tray.setImage(nativeImage.createEmpty());
       tray.setTitle(`${letter} !`);
-      tray.setToolTip("Claude Tray: " + error);
+      tray.setToolTip("AI Usage: " + error);
       return;
     }
 
     if (sPct == null && wPct == null) {
       tray.setImage(nativeImage.createEmpty());
       tray.setTitle(`${letter} ...`);
-      tray.setToolTip("Claude Tray: fetching usage...");
+      tray.setToolTip("AI Usage: fetching usage...");
       return;
     }
 
@@ -1140,7 +1140,7 @@ async function updateTrayTitle() {
   // show, just a brand-colored letter badge so the tray still reflects
   // which provider's tab is open in the popup.
   const status = providerStatus[effectiveId];
-  tray.setToolTip(status?.message ? `${letter}: ${status.message}` : "Claude Tray");
+  tray.setToolTip(status?.message ? `${letter}: ${status.message}` : "AI Usage");
   const icon = await generateTrayIcon(null, color, letter);
   if (icon) {
     tray.setImage(icon);
@@ -1549,13 +1549,13 @@ app.whenReady().then(async () => {
   const icon = nativeImage.createEmpty();
   tray = new Tray(icon);
   tray.setTitle("C …");
-  tray.setToolTip("Claude Tray");
+  tray.setToolTip("AI Usage");
 
   const contextMenu = Menu.buildFromTemplate([
     { label: "Settings…", click: () => createSettingsWindow() },
     { label: "Run Setup Wizard…", click: () => createWizardWindow() },
     { type: "separator" },
-    { label: "Quit Claude Tray", click: () => app.quit() },
+    { label: "Quit AI Usage", click: () => app.quit() },
   ]);
 
   tray.on("click", togglePopup);

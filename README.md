@@ -14,7 +14,11 @@ brew install eli-manning/tap/ai-usage
 
 Or download [AI-Usage.dmg](https://github.com/eli-manning/Ai-Usage/releases/latest/download/AI-Usage.dmg) and drag it to Applications.
 
-**Windows** — download [Claude-Tray.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/Claude-Tray.exe).
+**Windows** — download [AI-Usage-Setup.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/AI-Usage-Setup.exe).
+
+> Upgrading from **Claude Tray** (anything before v2.0.1)? Uninstall that first
+> — the app was renamed, so Windows treats the two as separate programs and
+> installs the new one alongside the old rather than over it.
 
 | Platform | Built from |
 |----------|------------|
@@ -187,7 +191,7 @@ brew style --cask Casks/ai-usage.rb
 ```sh
 cd os-menu
 npm ci
-npm run build:win   # dist/Claude-Tray.exe
+npm run build:win   # dist/AI-Usage-Setup.exe
 ```
 
 Requires Windows, or Wine on macOS/Linux.

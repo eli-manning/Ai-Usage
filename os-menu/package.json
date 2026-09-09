@@ -1,21 +1,21 @@
 {
-  "name": "claude-tray",
+  "name": "ai-usage",
   "version": "1.0.11",
-  "description": "Claude usage in your system tray",
+  "description": "AI coding usage in your system tray",
   "author": "Eli Manning",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev:mac": "electron-builder --mac --dir && open 'dist/mac-arm64/Claude Tray.app'",
+    "dev:mac": "electron-builder --mac --dir && open 'dist/mac-arm64/AI Usage.app'",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win --x64",
     "build:linux": "electron-builder --linux",
     "test": "node test/win-pty-driver.test.js"
   },
   "build": {
-    "appId": "com.eli.claude-tray",
-    "productName": "Claude Tray",
-    "artifactName": "Claude-Tray.${ext}",
+    "appId": "com.eli.aiusage",
+    "productName": "AI Usage",
+    "artifactName": "AI-Usage-Setup.${ext}",
     "afterSign": "scripts/afterSignHook.js",
     "files": [
       "**/*",
@@ -76,7 +76,7 @@
     }
   },
   "devDependencies": {
-    "electron": "^39.0.0",
+    "electron": "^44.3.0",
     "electron-builder": "^26.0.0"
   },
   "dependencies": {
