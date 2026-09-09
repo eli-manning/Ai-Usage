@@ -175,48 +175,64 @@ jobs:
   # pins its download by hash, so without this `brew install` keeps handing
   # people the previous version indefinitely.
   #
-  # Needs a TAP_GITHUB_TOKEN secret — a PAT with `contents: write` on
-  # eli-manning/homebrew-tap, since GITHUB_TOKEN only reaches this repo. The
-  # job no-ops with a notice rather than failing the release if it is absent.
+  # Needs a TAP_DEPLOY_KEY secret — the private half of a write-enabled deploy
+  # key on eli-manning/homebrew-tap, since GITHUB_TOKEN only reaches this repo.
+  # A deploy key is preferred over a personal access token because it is scoped
+  # to that one repository.
   bump-cask:
     needs: [version, publish]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check for the tap token
-        id: token
+      - name: Require the tap deploy key
         env:
-          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          TAP_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        # A hard failure, not a skip. This job used to no-op with a notice when
+        # the credential was absent, so v2.0.2 reported success while the cask
+        # went unbumped and `brew install` kept serving the previous version.
+        # A release that doesn't update what people actually install is a failed
+        # release and should look like one.
         run: |
-          if [ -n "$TAP_TOKEN" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::TAP_GITHUB_TOKEN is not set; skipping the Homebrew cask bump."
+          if [ -z "$TAP_KEY" ]; then
+            echo "::error::TAP_DEPLOY_KEY is not set, so the Homebrew cask was not updated and 'brew install' still serves the previous version. Add the private half of a write-enabled deploy key for eli-manning/homebrew-tap at Settings > Secrets and variables > Actions."
+            exit 1
           fi
 
       - uses: actions/download-artifact@v4
-        if: steps.token.outputs.present == 'true'
         with:
           name: macos
           path: macos
 
+      # A deploy key rather than a personal access token: it grants write to
+      # this one repository and nothing else on the account, and it doesn't
+      # expire out from under the release.
       - uses: actions/checkout@v4
-        if: steps.token.outputs.present == 'true'
         with:
           repository: eli-manning/homebrew-tap
-          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}
           path: tap
 
       - name: Update the cask
-        if: steps.token.outputs.present == 'true'
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          SHA=$(sha256sum macos/AI-Usage.zip | cut -d' ' -f1)
           CASK=tap/Casks/ai-usage.rb
+
+          # Hash whichever file the cask actually points at, rather than a name
+          # hardcoded here. Renaming a release asset without updating the url
+          # stanza would otherwise leave the cask 404ing, and a hardcoded name
+          # hides that (it happened in the caffeine-bar tap).
+          ASSET=$(grep -oE 'releases/download/v#\{version\}/[^"]+' "$CASK" | sed 's|.*/||')
+          echo "cask expects asset: $ASSET"
+          if [ ! -f "macos/$ASSET" ]; then
+            echo "::error::The cask's url points at '$ASSET', which this release does not produce. Update the url stanza in Casks/ai-usage.rb or rename the artifact."
+            ls -la macos
+            exit 1
+          fi
+          SHA=$(sha256sum "macos/$ASSET" | cut -d' ' -f1)
+
           # Anchored to the stanza names so this can't rewrite the sha256 of
           # some other cask, or the version inside a URL.
           sed -i -E "s|^  version \".*\"$|  version \"${VERSION}\"|" "$CASK"
@@ -226,7 +242,6 @@ jobs:
           cat "$CASK"
 
       - name: Commit and push
-        if: steps.token.outputs.present == 'true'
         working-directory: tap
         env:
           VERSION: ${{ needs.version.outputs.version }}
