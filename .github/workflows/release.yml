@@ -70,6 +70,11 @@ jobs:
           STAMPED=$(plutil -extract CFBundleShortVersionString raw "$MP/AI Usage.app/Contents/Info.plist")
           test "$STAMPED" = "${{ needs.version.outputs.version }}"
           test -x "$MP/AI Usage.app/Contents/MacOS/ptydrive"
+          ICON=$(plutil -extract CFBundleIconFile raw "$MP/AI Usage.app/Contents/Info.plist")
+          test -f "$MP/AI Usage.app/Contents/Resources/$ICON"
+          # arm64 is what the Homebrew cask declares; shipping a bundle that
+          # doesn't match would install cleanly and then fail to launch.
+          lipo -archs "$MP/AI Usage.app/Contents/MacOS/AI Usage" | grep -qw arm64
           hdiutil detach "$MP" -quiet
           echo "artifacts OK (version $STAMPED)"
 
@@ -106,9 +111,17 @@ jobs:
 
       - name: Install dependencies
         working-directory: os-menu
-        # `npm install`, not `npm ci` — package-lock.json is gitignored here,
-        # so there is no lockfile in the checkout for ci to consume.
-        run: npm install
+        # `npm ci` — package-lock.json is committed, and a release build is the
+        # one place the exact dependency versions have to be reproducible.
+        # `npm version` above updates the lockfile alongside package.json, so
+        # the two are still in sync here.
+        run: npm ci
+
+      - name: Test
+        working-directory: os-menu
+        # The Windows PTY driver is the whole fetch path on this platform;
+        # never ship a build whose state machine regressed.
+        run: npm test
 
       - name: Build installer
         working-directory: os-menu
@@ -121,6 +134,10 @@ jobs:
           set -euo pipefail
           ls -la dist
           test -f dist/Claude-Tray.exe
+          # electron-builder leaves the unpacked tree beside the installer;
+          # checking it catches a config regression that the .exe existing does
+          # not — a missing node-pty means every provider reports nothing.
+          test -d "dist/win-unpacked/resources/app.asar.unpacked/node_modules/node-pty"
           echo "installer OK"
 
       - uses: actions/upload-artifact@v4
@@ -153,3 +170,73 @@ jobs:
             artifacts/macos/AI-Usage.dmg
             artifacts/macos/AI-Usage.zip
             artifacts/windows/Claude-Tray.exe
+
+  # Point the Homebrew cask at the release that was just published. The cask
+  # pins its download by hash, so without this `brew install` keeps handing
+  # people the previous version indefinitely.
+  #
+  # Needs a TAP_GITHUB_TOKEN secret — a PAT with `contents: write` on
+  # eli-manning/homebrew-tap, since GITHUB_TOKEN only reaches this repo. The
+  # job no-ops with a notice rather than failing the release if it is absent.
+  bump-cask:
+    needs: [version, publish]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for the tap token
+        id: token
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          if [ -n "$TAP_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::TAP_GITHUB_TOKEN is not set; skipping the Homebrew cask bump."
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          name: macos
+          path: macos
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          repository: eli-manning/homebrew-tap
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: tap
+
+      - name: Update the cask
+        if: steps.token.outputs.present == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum macos/AI-Usage.zip | cut -d' ' -f1)
+          CASK=tap/Casks/ai-usage.rb
+          # Anchored to the stanza names so this can't rewrite the sha256 of
+          # some other cask, or the version inside a URL.
+          sed -i -E "s|^  version \".*\"$|  version \"${VERSION}\"|" "$CASK"
+          sed -i -E "s|^  sha256 \".*\"$|  sha256 \"${SHA}\"|" "$CASK"
+          grep -q "version \"${VERSION}\"" "$CASK"
+          grep -q "sha256 \"${SHA}\"" "$CASK"
+          cat "$CASK"
+
+      - name: Commit and push
+        if: steps.token.outputs.present == 'true'
+        working-directory: tap
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "cask already at $VERSION"
+            exit 0
+          fi
+          git commit -am "ai-usage $VERSION"
+          git push

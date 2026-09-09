@@ -23,7 +23,8 @@ Or download [AI-Usage.dmg](https://github.com/eli-manning/Ai-Usage/releases/late
 
 macOS runs a native Swift rebuild: one process, no Electron, no Node, no
 python3. Windows runs the original Electron app, which is still the only
-implementation for that platform.
+implementation for that platform — and tracks all four providers there, via
+node-pty's ConPTY rather than the POSIX-only `*-pty-wrapper.py` scripts.
 
 > **First launch:** the app is ad-hoc signed rather than notarized, so macOS
 > will refuse to open it the first time — however you installed it, Homebrew
@@ -49,8 +50,8 @@ wizard, and Quit.
 
 ## Requirements
 
-macOS 13+, and whichever provider CLIs you want tracked, installed and signed
-in:
+macOS 13+ on Apple Silicon (the released bundle is arm64), and whichever
+provider CLIs you want tracked, installed and signed in:
 
 | Provider | CLI |
 |----------|-----|
@@ -76,6 +77,7 @@ make app     # assemble build/AI Usage.app
 make run     # assemble and launch it
 make test    # unit + parser-equivalence tests
 make dist    # dist/AI-Usage.dmg and dist/AI-Usage.zip
+make icons   # re-render the app icons (only when the artwork changes)
 ```
 
 `make debug` runs straight from SwiftPM, which is the fastest loop for popover
@@ -120,6 +122,32 @@ same fixtures — the two implementations have to agree.
 `fork()` in a process that has already started AppKit's threads isn't
 async-signal-safe; keeping fork/exec in a single-threaded helper sidesteps it.
 
+Both apps' icons come from one renderer, `mac-native/scripts/make-icon.swift` —
+`make icons` writes the macOS `.icns` and the PNG electron-builder turns into
+the Windows `.ico`, so the two platforms can't drift apart visually. The
+outputs are committed; neither build regenerates them.
+
+### Driving the CLIs
+
+Every provider is driven the same way — launch its CLI in a pseudo-terminal,
+wait for the ready prompt, type its usage command, wait for the quota panel to
+actually paint, capture the screen — and that drive spec exists three times:
+
+| Where | Implementation |
+|-------|----------------|
+| The native macOS app | `mac-native/Sources/UsageCore/PTYSession.swift` |
+| Electron on macOS/Linux | `os-menu/*-pty-wrapper.py` |
+| Electron on Windows | `os-menu/win-pty-driver.js` (node-pty / ConPTY) |
+
+None of the three may drift: `mac-native`'s `ParserEquivalenceTests` and
+`os-menu`'s `npm test` are what hold them to the same numbers and markers.
+
+A signed-out CLI is never re-driven by the background poll, on either platform.
+Launching one isn't a no-op — `agy`, `codex` and `cursor-agent` all answer by
+opening a browser tab for their OAuth handoff, which can't be completed because
+the code has to be pasted back into a terminal the user can't see. Only an
+explicit Refresh tries again.
+
 ## Releases
 
 Tagging is what publishes:
@@ -138,10 +166,15 @@ bundle's `Info.plist` and the Electron `package.json` alike.
 Ordinary pushes run `ci.yml` instead, which tests and validates without
 publishing anything.
 
-### Bumping the Homebrew cask
+### The Homebrew cask
 
 The cask lives in [eli-manning/homebrew-tap](https://github.com/eli-manning/homebrew-tap)
-and pins the release asset by hash, so it needs a manual bump after each tag:
+and pins the release asset by hash, so it has to be bumped after every tag or
+`brew install` keeps handing people the previous version. `release.yml`'s
+`bump-cask` job does it automatically, given a `TAP_GITHUB_TOKEN` secret — a
+PAT with `contents: write` on the tap repo, since `GITHUB_TOKEN` only reaches
+this one. Without the secret the job logs a notice and skips, and the bump is
+two lines by hand:
 
 ```sh
 shasum -a 256 AI-Usage.zip          # from the new release's assets
@@ -153,7 +186,7 @@ brew style --cask Casks/ai-usage.rb
 
 ```sh
 cd os-menu
-npm install
+npm ci
 npm run build:win   # dist/Claude-Tray.exe
 ```
 

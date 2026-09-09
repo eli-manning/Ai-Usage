@@ -8,6 +8,9 @@ const {
   screen,
 } = require("electron");
 const { spawn, exec } = require("child_process");
+// Windows has no `pty` module and no `python3`; the three PTY-driven
+// providers below take this path instead of the *-pty-wrapper.py scripts.
+const { driveWindows } = require("./win-pty-driver");
 const dns = require("dns");
 const path = require("path");
 const os = require("os");
@@ -117,6 +120,9 @@ let antigravityData = { fiveHourPct: null, weeklyPct: null, fiveHourReset: null,
 let codexData = { plan: null, limits: null, error: null, lastUpdated: null };
 let cursorData = { plan: null, reset: null, rows: null, error: null, lastUpdated: null };
 
+const IS_WIN = process.platform === "win32";
+const PATH_SEP = IS_WIN ? ";" : ":";
+
 // A packaged Electron app's process env is whatever launched it (Finder/
 // LaunchServices' bare-bones PATH), not a login shell — `~/.local/bin`
 // (where cursor-agent/agent live) only ever gets added by a shell rc file
@@ -124,14 +130,46 @@ let cursorData = { plan: null, reset: null, rows: null, error: null, lastUpdated
 // check needs this same augmentation or a CLI installed exactly like the
 // installer's own docs say to will still read as "not installed".
 function pathAugmentedEnv() {
-  const extraPaths = ["/opt/homebrew/bin", "/usr/local/bin", path.join(os.homedir(), ".local/bin")];
-  return { ...process.env, PATH: `${extraPaths.join(":")}:${process.env.PATH || ""}` };
+  // Joining with ":" on Windows welded the first real PATH entry onto the end
+  // of our last added one, quietly dropping it from every lookup.
+  const extraPaths = IS_WIN
+    ? [
+        path.join(os.homedir(), "AppData", "Roaming", "npm"),
+        path.join(os.homedir(), ".local", "bin"),
+      ]
+    : ["/opt/homebrew/bin", "/usr/local/bin", path.join(os.homedir(), ".local/bin")];
+  return {
+    ...process.env,
+    PATH: `${extraPaths.join(PATH_SEP)}${PATH_SEP}${process.env.PATH || ""}`,
+  };
+}
+
+// Resolves a CLI to a full path: `where`/`which` first, then the known install
+// locations, then the bare name so the caller still gets something to try.
+// Every provider used to open-code this with a hardcoded `which`, which on
+// Windows is not a command at all.
+function resolveBinaryPath(bin, posixCandidates, env) {
+  return new Promise((resolve) => {
+    exec(IS_WIN ? `where ${bin}` : `which ${bin}`, { env }, (err, stdout) => {
+      const fromWhich = (stdout || "").trim().split("\n")[0].trim();
+      if (fromWhich) return resolve(fromWhich);
+      const candidates = IS_WIN
+        ? [
+            path.join(os.homedir(), "AppData", "Roaming", "npm", `${bin}.cmd`),
+            path.join(os.homedir(), "AppData", "Roaming", "npm", `${bin}.exe`),
+          ]
+        : posixCandidates;
+      const found = candidates.find((c) => {
+        try { fs.accessSync(c); return true; } catch { return false; }
+      });
+      resolve(found || bin);
+    });
+  });
 }
 
 function whichBinary(bin) {
   return new Promise((resolve) => {
-    const isWin = process.platform === "win32";
-    exec(isWin ? `where ${bin}` : `which ${bin}`, { env: pathAugmentedEnv() }, (err, stdout) => {
+    exec(IS_WIN ? `where ${bin}` : `which ${bin}`, { env: pathAugmentedEnv() }, (err, stdout) => {
       resolve(!err && !!(stdout || "").trim());
     });
   });
@@ -235,6 +273,19 @@ function parseAgyOutput(raw) {
 }
 
 function runAgyCommand(agyPath, augmentedEnv) {
+  // Windows: ConPTY via node-pty. The *-pty-wrapper.py scripts below are
+  // POSIX-only (`import pty`), and `python3` isn't a command there either, so
+  // this provider reported nothing at all on Windows before.
+  if (IS_WIN) {
+    return driveWindows({
+      providerId: "antigravity",
+      binaryPath: agyPath,
+      env: augmentedEnv,
+      trackChild,
+      log,
+    }).then(parseAgyOutput);
+  }
+
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ error: "Timed out." }), 60000);
     const ptyWrapper = app.isPackaged
@@ -260,18 +311,7 @@ function runAgyCommand(agyPath, augmentedEnv) {
 
 async function fetchAntigravityUsage() {
   const augmentedEnv = pathAugmentedEnv();
-  const agyPath = await new Promise((resolve) => {
-    exec("which agy", { env: augmentedEnv }, (err, stdout) => {
-      const fromWhich = (stdout || "").trim().split("\n")[0];
-      resolve(
-        fromWhich ||
-          findAgyPath().find((p) => {
-            try { fs.accessSync(p); return true; } catch { return false; }
-          }) ||
-          "agy"
-      );
-    });
-  });
+  const agyPath = await resolveBinaryPath("agy", findAgyPath(), augmentedEnv);
   return runAgyCommand(agyPath, augmentedEnv);
 }
 
@@ -317,6 +357,19 @@ function parseCodexOutput(raw) {
 }
 
 function runCodexCommand(codexPath, augmentedEnv) {
+  // Windows: ConPTY via node-pty. The *-pty-wrapper.py scripts below are
+  // POSIX-only (`import pty`), and `python3` isn't a command there either, so
+  // this provider reported nothing at all on Windows before.
+  if (IS_WIN) {
+    return driveWindows({
+      providerId: "codex",
+      binaryPath: codexPath,
+      env: augmentedEnv,
+      trackChild,
+      log,
+    }).then(parseCodexOutput);
+  }
+
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ error: "Timed out." }), 30000);
     const ptyWrapper = app.isPackaged
@@ -342,18 +395,7 @@ function runCodexCommand(codexPath, augmentedEnv) {
 
 async function fetchCodexUsage() {
   const augmentedEnv = pathAugmentedEnv();
-  const codexPath = await new Promise((resolve) => {
-    exec("which codex", { env: augmentedEnv }, (err, stdout) => {
-      const fromWhich = (stdout || "").trim().split("\n")[0];
-      resolve(
-        fromWhich ||
-          findCodexPath().find((p) => {
-            try { fs.accessSync(p); return true; } catch { return false; }
-          }) ||
-          "codex"
-      );
-    });
-  });
+  const codexPath = await resolveBinaryPath("codex", findCodexPath(), augmentedEnv);
   return runCodexCommand(codexPath, augmentedEnv);
 }
 
@@ -398,6 +440,19 @@ function parseCursorOutput(raw) {
 }
 
 function runCursorCommand(cursorPath, augmentedEnv) {
+  // Windows: ConPTY via node-pty. The *-pty-wrapper.py scripts below are
+  // POSIX-only (`import pty`), and `python3` isn't a command there either, so
+  // this provider reported nothing at all on Windows before.
+  if (IS_WIN) {
+    return driveWindows({
+      providerId: "cursor",
+      binaryPath: cursorPath,
+      env: augmentedEnv,
+      trackChild,
+      log,
+    }).then(parseCursorOutput);
+  }
+
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve({ error: "Timed out." }), 30000);
     const ptyWrapper = app.isPackaged
@@ -423,18 +478,7 @@ function runCursorCommand(cursorPath, augmentedEnv) {
 
 async function fetchCursorUsage() {
   const augmentedEnv = pathAugmentedEnv();
-  const cursorPath = await new Promise((resolve) => {
-    exec("which cursor-agent", { env: augmentedEnv }, (err, stdout) => {
-      const fromWhich = (stdout || "").trim().split("\n")[0];
-      resolve(
-        fromWhich ||
-          findCursorPath().find((p) => {
-            try { fs.accessSync(p); return true; } catch { return false; }
-          }) ||
-          "cursor-agent"
-      );
-    });
-  });
+  const cursorPath = await resolveBinaryPath("cursor-agent", findCursorPath(), augmentedEnv);
   return runCursorCommand(cursorPath, augmentedEnv);
 }
 
@@ -467,16 +511,31 @@ async function withRetryOnError(fetchFn) {
 // which was a contributor to the intermittent "Could not find quota panel"
 // failures.
 let isOtherProvidersPolling = false;
-async function refreshOtherProviders() {
+
+// Providers a drive has proved are installed but signed out.
+//
+// Driving a signed-out CLI is not a no-op: `agy` answers being launched by
+// opening a browser tab for its Google OAuth handoff, which the user then
+// can't finish — the code has to be pasted back into a terminal, and ours is a
+// headless PTY nobody can see. On the five-minute poll that meant a fresh
+// dead-end sign-in tab every five minutes, forever. `codex` and `cursor-agent`
+// behave the same way. So the poll skips a provider once it's known to be
+// signed out; only an explicit user action (Refresh, re-enabling it in
+// Settings) tries again, and a successful drive clears the flag.
+const signedOutProviders = new Set();
+
+async function refreshOtherProviders({ manual = false } = {}) {
   if (isOtherProvidersPolling) return;
   isOtherProvidersPolling = true;
   try {
     const detected = await detectOtherProviders();
+    const shouldDrive = (id) =>
+      detected[id]?.state === "installed" && (manual || !signedOutProviders.has(id));
 
     const [agyResult, codexResult, cursorResult] = await Promise.all([
-      detected.antigravity?.state === "installed" ? withRetryOnError(fetchAntigravityUsage) : null,
-      detected.codex?.state === "installed" ? withRetryOnError(fetchCodexUsage) : null,
-      detected.cursor?.state === "installed" ? withRetryOnError(fetchCursorUsage) : null,
+      shouldDrive("antigravity") ? withRetryOnError(fetchAntigravityUsage) : null,
+      shouldDrive("codex") ? withRetryOnError(fetchCodexUsage) : null,
+      shouldDrive("cursor") ? withRetryOnError(fetchCursorUsage) : null,
     ]);
 
     if (agyResult) {
@@ -491,7 +550,9 @@ async function refreshOtherProviders() {
           : { state: "error", message: agyResult.error };
       } else if (agyResult.signedIn === false) {
         detected.antigravity = { state: "installed", message: null };
+        signedOutProviders.add("antigravity");
       } else {
+        signedOutProviders.delete("antigravity");
         antigravityData = {
           fiveHourPct: agyResult.fiveHourPct,
           weeklyPct: agyResult.weeklyPct,
@@ -512,7 +573,9 @@ async function refreshOtherProviders() {
           : { state: "error", message: codexResult.error };
       } else if (codexResult.signedIn === false) {
         detected.codex = { state: "installed", message: null };
+        signedOutProviders.add("codex");
       } else {
+        signedOutProviders.delete("codex");
         codexData = {
           plan: codexResult.plan,
           limits: codexResult.limits,
@@ -531,7 +594,9 @@ async function refreshOtherProviders() {
           : { state: "error", message: cursorResult.error };
       } else if (cursorResult.signedIn === false) {
         detected.cursor = { state: "installed", message: null };
+        signedOutProviders.add("cursor");
       } else {
+        signedOutProviders.delete("cursor");
         cursorData = {
           plan: cursorResult.plan,
           reset: cursorResult.reset,
@@ -1412,7 +1477,10 @@ function applyUsageData(data) {
 ipcMain.handle("refresh", async () => {
   isRefreshing = true;
   broadcastUsageUpdate();
-  const [claudeResult] = await Promise.all([fetchUsageAndStats(), refreshOtherProviders()]);
+  const [claudeResult] = await Promise.all([
+    fetchUsageAndStats(),
+    refreshOtherProviders({ manual: true }),
+  ]);
   applyUsageData(claudeResult);
   isRefreshing = false;
   await updateTrayTitle();
@@ -1441,7 +1509,7 @@ ipcMain.handle("set-provider-enabled", async (_, id, enabled) => {
     if (id === "claude") {
       applyUsageData(await fetchUsageAndStats());
     } else {
-      await refreshOtherProviders();
+      await refreshOtherProviders({ manual: true });
     }
     await updateTrayTitle();
     broadcastUsageUpdate();

@@ -2,13 +2,15 @@
   "name": "claude-tray",
   "version": "1.0.11",
   "description": "Claude usage in your system tray",
+  "author": "Eli Manning",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev:mac": "electron-builder --mac --dir && open 'dist/mac-arm64/Claude Tray.app'",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win --x64",
-    "build:linux": "electron-builder --linux"
+    "build:linux": "electron-builder --linux",
+    "test": "node test/win-pty-driver.test.js"
   },
   "build": {
     "appId": "com.eli.claude-tray",
@@ -17,7 +19,10 @@
     "afterSign": "scripts/afterSignHook.js",
     "files": [
       "**/*",
-      "!dev-scratch/**/*"
+      "!dev-scratch/**/*",
+      "!__pycache__/**/*",
+      "!**/*.md",
+      "!test/**/*"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**"
@@ -45,25 +50,32 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "icon": "build/icon.png"
     },
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
-      ]
+      ],
+      "icon": "build/icon.png"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "shortcutName": "AI Usage"
     }
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.0",
     "electron": "^39.0.0",
     "electron-builder": "^26.0.0"
   },

@@ -6,6 +6,7 @@
 
 APP_NAME    := AI Usage
 BUNDLE_ID   := com.eli.aiusage
+ICON_FILE   := AppIcon.icns
 # Overridable so CI can stamp the release tag into the bundle:
 # `make dmg VERSION=1.2.0`. Defaults to the dev version for local builds.
 VERSION     ?= 0.1.0
@@ -20,7 +21,7 @@ ZIP         := $(DIST_DIR)/AI-Usage.zip
 MACOS_DIR   := $(APP_DIR)/Contents/MacOS
 RES_DIR     := $(APP_DIR)/Contents/Resources
 
-.PHONY: all build app run debug test verify fixtures dmg zip dist clean
+.PHONY: all build app run debug test verify fixtures icons dmg zip dist clean
 
 all: app
 
@@ -46,6 +47,10 @@ app: build
 	@if [ -d "$(ARCH_DIR)/AiUsage_AiUsage.bundle" ]; then \
 		cp -R "$(ARCH_DIR)/AiUsage_AiUsage.bundle" "$(RES_DIR)/"; \
 	fi
+	@# CFBundleIconFile resolves against Contents/Resources, not against the
+	@# SwiftPM resource bundle above — so the icon is copied in directly.
+	@# Regenerate it with `make icons` after changing the artwork.
+	@cp Resources/$(ICON_FILE) "$(RES_DIR)/$(ICON_FILE)"
 	@# `%b`, not `%s` — the template below carries \n/\t escapes, and %s
 	@# writes them through as literal backslash-n. That produced a one-line
 	@# plist that `plutil -lint` rejects and Gatekeeper reports as "a required
@@ -94,6 +99,12 @@ zip: app
 verify: test
 	@bash scripts/verify-against-js.sh
 
+## Re-render the app icons — the macOS .icns and the PNG electron-builder
+## turns into the Windows .ico. Outputs are committed, so this is only needed
+## when the artwork itself changes.
+icons:
+	@bash scripts/make-icons.sh
+
 ## Re-capture fixtures from the CLIs installed on this machine, and regenerate
 ## the expected JSON using the JavaScript parsers. Run this only when a CLI's
 ## output format has genuinely changed — it rewrites the contract the tests
@@ -107,5 +118,5 @@ clean:
 
 # LSUIElement is what makes this a menu-bar app with no Dock icon.
 define INFO_PLIST
-<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>CFBundleName</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundleDisplayName</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundleIdentifier</key>\n\t<string>$(BUNDLE_ID)</string>\n\t<key>CFBundleVersion</key>\n\t<string>$(VERSION)</string>\n\t<key>CFBundleShortVersionString</key>\n\t<string>$(VERSION)</string>\n\t<key>CFBundleExecutable</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundlePackageType</key>\n\t<string>APPL</string>\n\t<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>\n\t<key>LSUIElement</key>\n\t<true/>\n\t<key>NSHighResolutionCapable</key>\n\t<true/>\n</dict>\n</plist>
+<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>CFBundleName</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundleDisplayName</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundleIdentifier</key>\n\t<string>$(BUNDLE_ID)</string>\n\t<key>CFBundleVersion</key>\n\t<string>$(VERSION)</string>\n\t<key>CFBundleShortVersionString</key>\n\t<string>$(VERSION)</string>\n\t<key>CFBundleExecutable</key>\n\t<string>$(APP_NAME)</string>\n\t<key>CFBundleIconFile</key>\n\t<string>$(ICON_FILE)</string>\n\t<key>CFBundlePackageType</key>\n\t<string>APPL</string>\n\t<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>\n\t<key>LSUIElement</key>\n\t<true/>\n\t<key>NSHighResolutionCapable</key>\n\t<true/>\n</dict>\n</plist>
 endef

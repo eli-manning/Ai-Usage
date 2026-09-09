@@ -58,6 +58,10 @@ jobs:
           # ptydrive must ship beside the app binary or every fetch fails at
           # runtime with no helper to drive the provider CLIs.
           test -x "$APP/Contents/MacOS/ptydrive"
+          # CFBundleIconFile naming a file that isn't there is how an app ends
+          # up showing the generic blank icon in Finder and Privacy & Security.
+          ICON=$(plutil -extract CFBundleIconFile raw "$APP/Contents/Info.plist")
+          test -f "$APP/Contents/Resources/$ICON"
           codesign --verify --deep --strict "$APP"
           echo "bundle OK"
 
@@ -76,7 +80,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: os-menu
-        run: npm install
+        # `npm ci` now that package-lock.json is committed — the build is only
+        # reproducible if CI installs the versions the lockfile pins.
+        run: npm ci
 
       - name: Syntax-check sources
         working-directory: os-menu
@@ -88,11 +94,40 @@ jobs:
             echo "ok $f"
           done
 
+      - name: Test the Windows PTY driver
+        working-directory: os-menu
+        run: node test/win-pty-driver.test.js
+
+      - name: Package (unpacked)
+        working-directory: os-menu
+        # Not the full NSIS installer — that is slow and only matters at
+        # release time — but enough to prove the electron-builder config still
+        # resolves: icon present, file globs valid, node-pty rebuilt for the
+        # bundled Electron. A broken config here used to surface only at a tag.
+        run: npx electron-builder --win --x64 --dir
+
+      - name: Verify the packaged tree
+        working-directory: os-menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="dist/win-unpacked"
+          test -f "$APP/Claude Tray.exe"
+          # node-pty is the whole Windows fetch path; if asarUnpack stopped
+          # covering it, every provider silently reports nothing.
+          test -d "$APP/resources/app.asar.unpacked/node_modules/node-pty"
+          for f in pty-wrapper.py agy-pty-wrapper.py codex-pty-wrapper.py cursor-pty-wrapper.py; do
+            test -f "$APP/resources/$f"
+          done
+          echo "package OK"
+
       - name: Check the PTY wrappers parse
         working-directory: os-menu
         shell: bash
-        # These drive the provider CLIs; a syntax error in one is a silent
-        # "no data" in the app rather than a crash, so check them explicitly.
+        # These drive the provider CLIs on macOS/Linux; a syntax error in one
+        # is a silent "no data" in the app rather than a crash, so check them
+        # explicitly. They ship inside the Windows build too (as extraResources)
+        # even though Windows takes the node-pty path instead.
         run: |
           set -euo pipefail
           for f in *-pty-wrapper.py pty-wrapper.py; do

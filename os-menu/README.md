@@ -1,87 +1,85 @@
-# Claude Tray
+# Claude Tray (`os-menu/`)
 
-Menu bar / system tray app that shows your [Claude Code](https://claude.ai/code) usage at a glance — no browser, no API key required.
+The Electron implementation, and what **Windows** ships. macOS has a native
+Swift rebuild in [`mac-native/`](../mac-native) instead — see the
+[repository README](../README.md) for downloads.
+
+Tracks four providers: Claude Code, Antigravity, Codex and Cursor. Each is
+driven by launching its CLI in a pseudo-terminal, typing its usage command, and
+parsing the screen that comes back.
 
 ## Download
 
-| Platform | Link |
-|----------|------|
-| macOS (Apple Silicon) | [Claude-Tray.dmg](https://github.com/eli-manning/claude-usage-tracker/releases/latest/download/Claude-Tray.dmg) |
-| Windows | [Claude-Tray.exe](https://github.com/eli-manning/claude-usage-tracker/releases/latest/download/Claude-Tray.exe) |
+The Windows installer is attached to every release:
+[Claude-Tray.exe](https://github.com/eli-manning/Ai-Usage/releases/latest/download/Claude-Tray.exe).
 
-**Requires [Claude Code](https://docs.anthropic.ai/claude-code) to be installed and authenticated.**
+It installs for your user account (no admin required) and launches
+automatically. The icon appears in the system tray at the bottom right; if it's
+hidden, click **^** and drag it into the visible area.
 
----
+## Requirements
 
-## Install
+Whichever provider CLIs you want tracked, installed and signed in. Providers
+you don't have are switched off in Settings.
 
-### macOS
-1. Open the `.dmg` and drag **Claude Tray** into your **Applications** folder
-2. Launch it from Applications or Spotlight
-3. The icon appears in your menu bar immediately
+On macOS and Linux the four `*-pty-wrapper.py` scripts drive the CLIs, so
+`python3` has to be on your PATH. Windows takes the `win-pty-driver.js` path
+instead — node-pty's ConPTY, bundled with the app — and needs nothing extra.
 
-> **⚠️ Blocked on first launch?** macOS blocks apps from unverified developers. If you see "Apple could not verify..." or the app won't open:
-> 1. Go to **System Settings → Privacy & Security**
-> 2. Scroll down to the Security section
-> 3. Click **Open Anyway** next to the Claude Tray message
-> 4. Click **Open** in the confirmation dialog
->
-> If instead you see **"Claude Tray" is damaged and can't be opened**, that's a stricter Gatekeeper block with no button to bypass it. Run this in Terminal, then launch the app again:
-> ```
-> xattr -cr "/Applications/Claude Tray.app"
-> ```
+## How a fetch works
 
-### Windows
-Run the installer — it installs for your user account (no admin required) and launches automatically. The icon appears in the system tray (bottom-right). If it's hidden, click **^** to find it and drag it to the visible area.
+Each provider gets a *drive spec*: the command to type, the marker that says
+the prompt is ready, the marker that says the quota panel has painted, and a
+timeout ladder. Three implementations share that one table, and they have to
+agree:
 
----
+| Where | What drives the CLI |
+|-------|--------------------|
+| macOS, Linux | `pty-wrapper.py`, `agy-pty-wrapper.py`, `codex-pty-wrapper.py`, `cursor-pty-wrapper.py` |
+| Windows | `win-pty-driver.js` (node-pty / ConPTY) |
+| The native macOS app | `mac-native/Sources/UsageCore/PTYSession.swift` |
 
-## Features
-
-- **Live tray icon** — session % shown at all times in your menu bar / system tray
-- **Click-to-open popup** — session and weekly usage with progress bars and reset times
-- **Color-coded** — icon and bars shift orange → yellow → red at 70% and 90%
-- **Usage history** — sparkline chart of your last 40 readings
-- **Auto-refresh** — re-runs `claude /usage` every 5 minutes; manual ↻ button also available
-
-## Privacy
-
-Everything runs locally. The app calls `claude /usage` on your machine — no network requests beyond what Claude Code itself makes. Nothing is sent to any server.
-
----
-
-## Troubleshooting
-
-**Blank tray icon / "Could not run claude"**
-`claude` isn't on your PATH. Run `which claude` (macOS) or `where claude` (Windows). If missing: `npm i -g @anthropic-ai/claude-code`
-
-**Stuck on "fetching…"**
-Open a terminal and run `claude /usage` to confirm you're authenticated. If it prompts for login, complete that first.
-
-**Stuck on "fetching…" only in the installed app**
-Claude Code is showing a directory trust prompt. Run this once in a terminal:
-- **macOS:** `cd ~ && claude /usage` → press **Enter** at the prompt
-- **Windows:** `cd %USERPROFILE% && claude /usage` → press **Enter**
-
-**Session expired**
-Run `claude` in a terminal and log in again.
-
-**Debug log (dev/source builds only)**
-When running from source (`npm start`), a debug log is written to `~/claude-tray-debug.log`. Not written in packaged/installed builds.
-
----
+Waiting for the panel marker rather than for a quiet screen is the part that
+matters: a cold session has a real network round trip between the command
+running and the quota panel painting, and a second of terminal silence lands
+right inside it.
 
 ## Build from source
 
 ```bash
 cd os-menu
-npm install
-npm start
-```
+npm ci
+npm start            # run it
+npm test             # the Windows PTY driver's state machine
 
-To build a distributable:
-```bash
-npm run build:mac    # → dist/Claude-Tray.dmg
-npm run build:win    # → dist/Claude-Tray.exe
+npm run build:win    # → dist/Claude-Tray.exe   (needs Windows, or Wine)
+npm run build:mac    # → dist/Claude-Tray.dmg   (superseded by mac-native/)
 npm run build:linux  # → dist/Claude-Tray.AppImage
 ```
+
+The app icon is generated, not hand-drawn — `build/icon.png` comes from
+`mac-native/scripts/make-icon.swift` via `make icons`, so the tray app and the
+native app can't drift apart visually.
+
+## Troubleshooting
+
+**Blank tray icon, or "Could not run claude"**
+The CLI isn't on your PATH. Run `where claude` (Windows) or `which claude`
+(macOS). If it's missing: `npm i -g @anthropic-ai/claude-code`.
+
+**A provider is stuck showing "not signed in"**
+Sign in from a real terminal — `claude`, `agy`, `codex` or `cursor-agent` — and
+then hit Refresh. The app deliberately stops re-launching a signed-out CLI on
+its own five-minute poll: these CLIs answer being launched by opening a browser
+tab for their OAuth handoff, and the code has to be pasted back into a terminal
+you can actually see, so polling one would just spawn a dead-end tab every five
+minutes.
+
+**Stuck on "fetching…" only in the installed app**
+Claude Code is showing its directory-trust prompt. Run it once by hand:
+`cd ~ && claude /usage` (macOS) or `cd %USERPROFILE% && claude /usage`
+(Windows), and press **Enter** at the prompt.
+
+**Debug log**
+Source builds (`npm start`) write to `~/claude-tray-debug.log`. Packaged builds
+write nothing.
