@@ -17,7 +17,7 @@
     z: '#FFD54A', Z: '#F2A93B', O: '#FFF6C8',                                              // gold, glow
     x: '#FF4F6E', i: '#FF5C7C', h: '#7A5233', H: '#54381F', F: '#F2C27A', f: '#D99A4E',    // misc
     E: '#D3C7A3', Q: '#A99B76', J: '#1F4D3E', I: '#C8E86B',                                // tv
-    9: '#1D2150',                                                                           // Codex's visor
+    9: '#1D2150', 1: '#4A8CF7', 2: '#6C7EEB', 3: '#957ADB', 4: '#C474B0',                // Codex's visor, Gemini's gradient
   };
 
   const sp = (rows) => ({ rows, w: rows[0].length, h: rows.length });
@@ -55,59 +55,69 @@
   };
 
   // Other agents' minis: the same rig (poses, props, arms) on a different body.
-  //   y: rows the sprite starts above the body top; eye: moves the face down;
+  //   x, y: where the sprite starts, from the body's top-left; eye: moves the face down;
   //   arms: [left x, width, shoulder row]; legs: columns, or null to hover.
   const SPECIES = {
-    // Codex's pet: a cloud head with a visor face and a >_ on its chest.
-    codex: { y: -5, eye: -3, arms: [3, 8, 5], legs: [4, 5, 8, 9], s: sp([
-      '...lll..lll...',
-      '..lbbbllbbbl..',
-      '.lbbbbbbbbbbs.',
-      'lb9999999999bs',
-      'bb9999999999bs',
-      'bb9999999999bs',
-      'bb9999999999bs',
-      'lb9999999999bs',
-      '.sbbbbbbbbbbs.',
-      '..ssssssssss..',
-      '...lbbbbbbl...',
-      '...bWbbbbbs...',
-      '...bbWbbbbs...',
-      '...bWbWWbbs...',
-      '...ssssssss...',
+    // Codex's pet: a cloud head with a visor face, and >_ on a chest plate.
+    codex: { x: -1, y: -6, eye: -4, arms: [3, 8, 6], legs: [4, 5, 8, 9], s: sp([
+      '...llll..llll...',
+      '..llbbbllbbbbs..',
+      '.lbbbbbbbbbbbbs.',
+      'lbbb99999999bbbs',
+      'lbb9999999999bbs',
+      'bbb9999999999bbs',
+      'bbb9999999999bbs',
+      'bbb9999999999bbs',
+      'bbbb99999999bbbs',
+      '.sbbbbbbbbbbbbs.',
+      '...ssssssssss...',
+      '....lbbbbbbl....',
+      '....b9W9999s....',
+      '....b99W999s....',
+      '....b9W9WW9s....',
+      '....ssssssss....',
     ]) },
-    // Gemini's four-point sparkle. Floats instead of walking.
-    sparkle: { y: -3, eye: 0, arms: [2, 10, 5], legs: null, s: sp([
-      '......ll......',
-      '......ll......',
-      '.....llll.....',
-      '.....lbbl.....',
-      '....bbbbbb....',
-      '...bbbbbbbb...',
-      '.lbbbbbbbbbbb.',
-      'lbbbbbbbbbbbbs',
-      '.bbbbbbbbbbbs.',
-      '...bbbbbbbs...',
-      '....sbbbbs....',
-      '.....ssss.....',
-      '......ss......',
-      '......ss......',
+    // Gemini: an orb in its blue-to-rose gradient with the Gemini sparkle hovering over it. Floats.
+    gemini: { x: 0, y: -9, eye: 0, arms: [0, 14, 5], legs: null, s: sp([
+      '......11......',
+      '......11......',
+      '.....1ww1.....',
+      '...11wwww11...',
+      '.....1ww1.....',
+      '......11......',
+      '......11......',
+      '..............',
+      '....111111....',
+      '..1w11111111..',
+      '.1w1111111111.',
+      '.222222222222.',
+      '22222222222222',
+      '22222222222222',
+      '33333333333333',
+      '33333333333333',
+      '.333333333333.',
+      '.444444444444.',
+      '...44444444...',
     ]) },
-    // Cursor's cube, seen from a corner: an eye on each face.
-    cube: { y: -3, eye: 2, arms: [0, 14, 5], legs: [4, 5, 8, 9], s: sp([
-      '......ll......',
-      '....llllll....',
-      '..llllllllll..',
-      'llllllllllllll',
-      'bbllllllllllss',
-      'bbbbllllllssss',
-      'bbbbbbllssssss',
-      'bbbbbbbsssssss',
-      'bbbbbbbsssssss',
-      'bbbbbbbsssssss',
-      'bbbbbbbsssssss',
-      '..bbbbbsssss..',
-      '....bbbsss....',
+    // Cursor's logo: a hexagonal cube with a white arrow for a face.
+    cursor: { x: -1, y: -5, eye: -2, arms: [-1, 16, 3], legs: [2, 3, 10, 11], s: sp([
+      '.......bb.......',
+      '.....bbbbbb.....',
+      '...bbbbbbbbbb...',
+      '.bbbbbbbbbbbbbb.',
+      'llllllllllllllll',
+      'dllllllllllllllq',
+      'ddllllllllllllqs',
+      'dddlllllllllllqs',
+      'ddddlllllllllqss',
+      'dddddlllllllqsss',
+      'ddddddllllllqsss',
+      'dddddddllllqssss',
+      'ddddddddllqsssss',
+      '.ddddddddlqssss.',
+      '...ddddddssss...',
+      '.....ddddss.....',
+      '.......dd.......',
     ]) },
   };
 
@@ -155,6 +165,8 @@
     duck: { s: sp(['..zz...', '.zezz..', 'ZZzzz..', '..zzzzz', '.zzzzzz', '..zzzz.']), grab: [6, 4] },
     // Claude Code's work: a checklist (tests, the plan) and a parcel (a commit going out)
     clip: { s: sp(['..gg..', 'nPggPn', 'nPPPPn', 'nPMMPn', 'nPPPPn', 'nPMMPn', 'nPPPPn', 'nnnnnn']), grab: [5, 4] },
+    // a cog, held up while its panel is open
+    gear: { s: sp(['...GGG...', '.GGGqGGG.', '.GqqqqqG.', 'GGqqGqqGG', 'GqqG.GqqG', 'GGqqGqqGG', '.GqqqqqG.', '.GGGqGGG.', '...GGG...']), grab: [0, 7] },
     box: { s: sp(['ffffffff', 'fFFzzFFf', 'fFFzzFFf', 'fFFFFFFf', 'fFFFFFFf', 'ffffffff']), grab: [7, 3] },
   };
   const LAPTOP = sp(['...KKKKKKK', '..KkkkkkkK', '..KkkkkkK.', '.KkkkkkkK.', '.KKKKKKKK.', 'gggggggggg', 'KKKKKKKKKK']);
@@ -268,6 +280,7 @@
     focus:       { eyes: 'dash', front: 'laptop', armR: 'tap', acc: ['headphones'], anim: 'type nod', fx: ['note', 16] },
     wizard:      { hat: 'wizard', acc: ['beard'], heldR: 'staff', armR: 'out', anim: 'wizard', fx: ['sparkle', 10] },
     detective:   { hat: 'detective', heldR: 'magnifier', armR: 'holdUp', anim: 'detective' },
+    tinker:      { eyes: 'happy', heldR: 'gear', armR: 'up', anim: 'tinker' },   // its panel is open
     chef:        { eyes: 'happy', hat: 'chef', heldR: 'pan', armR: 'hold', anim: 'chef', blush: true },
     read:        { front: 'book', armL: 'none', armR: 'none', look: [0, 1], anim: 'read' },
     juggle:      { anim: 'juggle' },
@@ -334,6 +347,7 @@
     jump(st, f, pf) { if (pf < 9) { hop(st, pf); st.oy *= 1.6; st.oy = Math.round(st.oy); } },
     cheer(st, f) { hop(st, f % 9); const a = (f >> 1) % 2; st.armL = a ? 'up' : 'out'; st.armR = a ? 'out' : 'up'; },
     party(st, f) { hop(st, f % 9); const a = (f >> 1) % 2; st.armL = st.armR = a ? 'up' : 'out'; },
+    tinker(st, f) { st.bob = f % 30 >= 15 ? 1 : 0; st.heldRDy = f % 16 < 8 ? 0 : -1; },
     wave(st, f) { st.armR = (f >> 1) % 2 ? 'up' : 'out'; st.bob = f % 30 >= 15 ? 1 : 0; },
     walk(st, f) {
       const step = (f >> 1) % 4;
@@ -663,7 +677,7 @@
         this._px(x, y0 + 2, shoes ? 'w' : 's');
       });
       // body
-      this._spr(S ? S.s : body.s, bx, head);
+      this._spr(S ? S.s : body.s, bx + (S ? S.x : 0), head);
       const costume = P.acc.includes('tv');
       if (!costume && st.eyes !== 'none') {   // 'none': we're looking at its back
         if (P.blush) { this._px(Math.round(cx - 6), top + 5, 'p'); this._px(Math.round(cx - 5), top + 5, 'p'); this._px(Math.round(cx + 4), top + 5, 'p'); this._px(Math.round(cx + 5), top + 5, 'p'); }
