@@ -17,6 +17,7 @@
     z: '#FFD54A', Z: '#F2A93B', O: '#FFF6C8',                                              // gold, glow
     x: '#FF4F6E', i: '#FF5C7C', h: '#7A5233', H: '#54381F', F: '#F2C27A', f: '#D99A4E',    // misc
     E: '#D3C7A3', Q: '#A99B76', J: '#1F4D3E', I: '#C8E86B',                                // tv
+    9: '#1D2150',                                                                           // Codex's visor
   };
 
   const sp = (rows) => ({ rows, w: rows[0].length, h: rows.length });
@@ -51,6 +52,63 @@
     // turning sideways, mid-spin
     thin: { s: bodySprite(8, 10), dx: 3, dy: 0 },
     edge: { s: bodySprite(4, 10), dx: 5, dy: 0 },
+  };
+
+  // Other agents' minis: the same rig (poses, props, arms) on a different body.
+  //   y: rows the sprite starts above the body top; eye: moves the face down;
+  //   arms: [left x, width, shoulder row]; legs: columns, or null to hover.
+  const SPECIES = {
+    // Codex's pet: a cloud head with a visor face and a >_ on its chest.
+    codex: { y: -5, eye: -3, arms: [3, 8, 5], legs: [4, 5, 8, 9], s: sp([
+      '...lll..lll...',
+      '..lbbbllbbbl..',
+      '.lbbbbbbbbbbs.',
+      'lb9999999999bs',
+      'bb9999999999bs',
+      'bb9999999999bs',
+      'bb9999999999bs',
+      'lb9999999999bs',
+      '.sbbbbbbbbbbs.',
+      '..ssssssssss..',
+      '...lbbbbbbl...',
+      '...bWbbbbbs...',
+      '...bbWbbbbs...',
+      '...bWbWWbbs...',
+      '...ssssssss...',
+    ]) },
+    // Gemini's four-point sparkle. Floats instead of walking.
+    sparkle: { y: -3, eye: 0, arms: [2, 10, 5], legs: null, s: sp([
+      '......ll......',
+      '......ll......',
+      '.....llll.....',
+      '.....lbbl.....',
+      '....bbbbbb....',
+      '...bbbbbbbb...',
+      '.lbbbbbbbbbbb.',
+      'lbbbbbbbbbbbbs',
+      '.bbbbbbbbbbbs.',
+      '...bbbbbbbs...',
+      '....sbbbbs....',
+      '.....ssss.....',
+      '......ss......',
+      '......ss......',
+    ]) },
+    // Cursor's cube, seen from a corner: an eye on each face.
+    cube: { y: -3, eye: 2, arms: [0, 14, 5], legs: [4, 5, 8, 9], s: sp([
+      '......ll......',
+      '....llllll....',
+      '..llllllllll..',
+      'llllllllllllll',
+      'bbllllllllllss',
+      'bbbbllllllssss',
+      'bbbbbbllssssss',
+      'bbbbbbbsssssss',
+      'bbbbbbbsssssss',
+      'bbbbbbbsssssss',
+      'bbbbbbbsssssss',
+      '..bbbbbsssss..',
+      '....bbbsss....',
+    ]) },
   };
 
   // eyes: [sprite rows, x offset from body center, y offset from body top]; right eye mirrors the left
@@ -418,6 +476,7 @@
       this.scale = opts.scale || 6;
       this.pal = opts.palette ? Object.assign({}, PAL, opts.palette) : PAL;
       this.particles = opts.particles !== false;
+      this.species = SPECIES[opts.species] || null;
       el.classList.add('critter');
       el.innerHTML = '';
       this.canvas = document.createElement('canvas');
@@ -573,12 +632,18 @@
       const b = this.b;
       b.clearRect(0, 0, CW, CH);
       const ox = st.ox, oy = st.oy;
+      const S = this.species;
+      // A species keeps its one shape and only takes a squash's drop; a floater hovers 2px up.
       const body = BODIES[st.body] || BODIES.base;
-      const bx = BX + ox + body.dx, top = BY + oy + body.dy + st.bob;
-      const bw = body.s.w, bh = body.s.h;
+      const bx = BX + ox + (S ? 0 : body.dx), top = BY + oy + body.dy + st.bob - (S && !S.legs ? 2 : 0);
+      const bw = S ? BW : body.s.w;
+      const head = S ? top + S.y : top;   // highest row of the sprite, for things over its head
+      const face = S ? top + S.eye : top;
       const cx = bx + bw / 2;
       const ex = Math.max(-1, Math.min(1, st.lx | 0)), ey = Math.max(-1, Math.min(1, st.ly | 0));
-      const shoulder = top + 5;
+      // arms and held things attach to the torso, which on some species is narrower than the head
+      const abx = S ? bx + S.arms[0] : bx, abw = S ? S.arms[1] : bw;
+      const shoulder = S ? top + S.arms[2] : top + 5;
 
       // ground: plant
       if (P.ground === 'plant') {
@@ -586,11 +651,11 @@
         if (st.grow) this._px(4, 24, 'L');
       }
       // shadow
-      const sw = Math.round((oy < -3 ? 8 : 12) * st.shadow);
+      const sw = Math.round((oy < -3 || (S && !S.legs) ? 8 : 12) * st.shadow);
       for (let i = 0; i < sw; i++) this._px(BX + ox + 1 + (12 - sw) / 2 + i, BY + BH + 2, 'rgba(60,30,20,0.16)');
       // legs
-      LEGS.forEach((lx0, i) => {
-        const lx = bw < BW ? Math.round(body.dx + (lx0 * (bw - 1)) / (BW - 1)) : lx0;   // tucked in under a narrow body
+      (S ? S.legs || [] : LEGS).forEach((lx0, i) => {
+        const lx = !S && bw < BW ? Math.round(body.dx + (lx0 * (bw - 1)) / (BW - 1)) : lx0;   // tucked in under a narrow body
         const x = BX + ox + lx, y0 = BY + oy + BH - 1 - st.legLift[i];
         const shoes = P.legs === 'sneakers';
         this._px(x, y0, 'b');
@@ -598,14 +663,14 @@
         this._px(x, y0 + 2, shoes ? 'w' : 's');
       });
       // body
-      this._spr(body.s, bx, top);
+      this._spr(S ? S.s : body.s, bx, head);
       const costume = P.acc.includes('tv');
       if (!costume && st.eyes !== 'none') {   // 'none': we're looking at its back
         if (P.blush) { this._px(Math.round(cx - 6), top + 5, 'p'); this._px(Math.round(cx - 5), top + 5, 'p'); this._px(Math.round(cx + 4), top + 5, 'p'); this._px(Math.round(cx + 5), top + 5, 'p'); }
         const eyeCx = Math.round(cx);
-        this._glyph(EYES[st.eyes] || EYES.open, eyeCx, top, ex, ey);
-        if (P.brows && BROWS[P.brows]) this._glyph(BROWS[P.brows], eyeCx, top, ex, Math.min(ey, 0));
-        if (st.mouth && MOUTHS[st.mouth]) this._glyph(MOUTHS[st.mouth], eyeCx, top, ex, ey, false);
+        this._glyph(EYES[st.eyes] || EYES.open, eyeCx, face, ex, ey);
+        if (P.brows && BROWS[P.brows]) this._glyph(BROWS[P.brows], eyeCx, face, ex, Math.min(ey, 0));
+        if (st.mouth && MOUTHS[st.mouth]) this._glyph(MOUTHS[st.mouth], eyeCx, face, ex, ey, false);
         if (P.acc.includes('shades')) {
           const y = top + 3;
           for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { this._px(eyeCx - 5 + i, y + j, 'K'); this._px(eyeCx + 2 + i, y + j, 'K'); }
@@ -641,18 +706,18 @@
         }
       }
       if (P.acc.includes('napbook')) this._spr(NAPBOOK, bx - 1, top - 4);
-      if (P.hat && HATS[P.hat]) { const [s, hx, overlap] = HATS[P.hat]; this._spr(s, bx + hx + (bw - BW) / 2, top - s.h + overlap); }
+      if (P.hat && HATS[P.hat]) { const [s, hx, overlap] = HATS[P.hat]; this._spr(s, bx + hx + (bw - BW) / 2, head - s.h + overlap); }
       // signs over the head
-      const sign = (s) => { const x = Math.round(bx + (bw - s.w) / 2), y = top - s.h - 2 - (f % 30 < 15 ? 0 : 1); this._spr(s, x, y); return [x, y]; };
+      const sign = (s) => { const x = Math.round(bx + (bw - s.w) / 2), y = head - s.h - 2 - (f % 30 < 15 ? 0 : 1); this._spr(s, x, y); return [x, y]; };
       if (P.acc.includes('mute')) sign(MUTE);
       if (P.acc.includes('alert')) sign(ALERT);
       if (P.acc.includes('check')) sign(CHECK);
       if (P.acc.includes('dots')) {   // ... thinking
-        const n = 1 + ((f >> 2) % 3), y = top - 4 - (f % 30 < 15 ? 0 : 1);
+        const n = 1 + ((f >> 2) % 3), y = head - 4 - (f % 30 < 15 ? 0 : 1);
         for (let i = 0; i < n; i++) { this._px(bx + bw + 1 + i * 2, y - i, 'G'); }
       }
       if (P.acc.includes('binoculars')) {
-        const ec = Math.round(cx) + ex, y = top + 2;
+        const ec = Math.round(cx) + ex, y = face + 2;
         [ec - 6, ec + 1].forEach((x0) => { for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) this._px(x0 + i, y + j, i > 0 && i < 3 && j === 1 ? 'a' : 'K'); });
         this._px(ec - 2, y + 1, 'K'); this._px(ec, y + 1, 'K'); this._px(ec - 1, y + 1, 'K');
       }
@@ -677,7 +742,7 @@
         const key = P.held === 'water' && st.tilt ? 'waterTilt' : P.held;
         const it = ITEMS[key];
         const hand = HANDS[st.armL] || HANDS.hold;
-        const x = bx + hand[0] - it.grab[0], y = shoulder + hand[1] + st.heldDy - it.grab[1];
+        const x = abx + hand[0] - it.grab[0], y = shoulder + hand[1] + st.heldDy - it.grab[1];
         this._spr(it.s, x, y);
         if (it.steam) for (let k = 0; k < 3; k++) {
           const ph = (f + k * 4) % 12;
@@ -689,7 +754,7 @@
       // held item, right hand
       if (P.heldR) {
         const hand = HANDS[st.armR] || HANDS.hold;
-        const hxR = bx + bw - 1 - hand[0], hyR = shoulder + hand[1] + st.heldRDy;
+        const hxR = abx + abw - 1 - hand[0], hyR = shoulder + hand[1] + st.heldRDy;
         if (P.heldR === 'staff') {
           const sx = hxR, sy = top - 6;
           for (let y = sy + 2; y <= BY + oy + BH + 1; y++) this._px(sx, y, y === shoulder ? 'H' : 'h');
@@ -720,14 +785,14 @@
         if (!a) return;
         const [rows, ax, ay] = a;
         const s = sp(rows);
-        if (side === 'L') this._spr(s, bx + ax, shoulder + ay);
-        else this._spr(s, bx + bw - ax - s.w, shoulder + ay, true);
+        if (side === 'L') this._spr(s, abx + ax, shoulder + ay);
+        else this._spr(s, abx + abw - ax - s.w, shoulder + ay, true);
       };
       drawArm(st.armL, 'L');
       drawArm(st.armR, 'R');
       if (P.acc.includes('poms')) {
         const pom = (x, y) => { this._px(x, y, 'z'); this._px(x - 1, y, 'i'); this._px(x + 1, y, 'i'); this._px(x, y - 1, 'i'); this._px(x, y + 1, 'i'); };
-        const hand = (name, side) => { const h = HANDS[name] || HANDS.rest; return side === 'L' ? [bx + h[0], shoulder + h[1]] : [bx + bw - 1 - h[0], shoulder + h[1]]; };
+        const hand = (name, side) => { const h = HANDS[name] || HANDS.rest; return side === 'L' ? [abx + h[0], shoulder + h[1]] : [abx + abw - 1 - h[0], shoulder + h[1]]; };
         pom(...hand(st.armL, 'L'));
         pom(...hand(st.armR, 'R'));
       }

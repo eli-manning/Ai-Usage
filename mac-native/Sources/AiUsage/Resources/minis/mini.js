@@ -3,12 +3,15 @@
 (function () {
   'use strict';
 
-  // Same critter, recoloured per provider. Claude keeps Mochi's own orange.
-  const PALETTES = {
-    claude: null,
-    codex: { b: '#3ECF8E', l: '#6BE0AA', s: '#2BA872', d: '#1F7E55', p: '#9FF0C8' },
-    cursor: { b: '#8B7CF6', l: '#A99CFA', s: '#6E5FD6', d: '#5446B0', p: '#C9C0FD' },
-    antigravity: { b: '#4E8CFF', l: '#78A9FF', s: '#3A70D6', d: '#2B55A8', p: '#A9C8FF' },
+  // Each provider's own critter (see SPECIES in pet.js). Claude is Mochi, Claude Code's mascot.
+  const LOOKS = {
+    claude: {},
+    // Codex's pet: periwinkle, with light eyes on its dark visor.
+    codex: { species: 'codex', palette: { b: '#7183F2', l: '#97A6FF', s: '#5262D2', d: '#3C49A8', p: '#B9C3FF', e: '#D9E4FF' } },
+    // Gemini's gradient, blue at the top to rose at the bottom.
+    antigravity: { species: 'sparkle', palette: { l: '#4E8FF0', b: '#8C78D6', s: '#C9698D', d: '#9A4C6C', p: '#F0B7C9' } },
+    // Lit from above: pale top, Cursor purple on the left, shade on the right.
+    cursor: { species: 'cube', palette: { l: '#D6CFFF', b: '#8B7CF6', s: '#5B4BC9', d: '#43379C', p: '#C9C0FD' } },
   };
   const NAMES = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', antigravity: 'Antigravity' };
 
@@ -63,7 +66,8 @@
     if (key === built) return;
     built = key;
     if (critter) critter.destroy();
-    critter = new Critter(petEl, { scale: s.scale, palette: PALETTES[s.provider] || undefined, particles: s.animation === 'full' });
+    const look = LOOKS[s.provider] || {};
+    critter = new Critter(petEl, { scale: s.scale, palette: look.palette, species: look.species, particles: s.animation === 'full' });
     document.documentElement.style.setProperty('--bubble-bottom', 25 * s.scale + 4 + 'px');
   }
 
