@@ -122,6 +122,7 @@
   const BATTERY = sp(['GGGGGGG.', 'G.....GG', 'G.....GG', 'GGGGGGG.']);
   const BOLT = sp(['..z', '.z.', 'zzz', '.z.', 'z..']);
   const ALERT = sp(['xx', 'xx', 'xx', '..', 'xx']);
+  const CHECK = sp(['.....L', '....LL', 'L..LL.', 'LLLL..', '.LL...']);
   // a tiny helper Mochi (Claude's sub-agents)
   const MINI = sp(['.lll.', 'bebeb', 'bbbbs', '.s.s.']);
 
@@ -415,6 +416,8 @@
     constructor(el, opts = {}) {
       this.el = el;
       this.scale = opts.scale || 6;
+      this.pal = opts.palette ? Object.assign({}, PAL, opts.palette) : PAL;
+      this.particles = opts.particles !== false;
       el.classList.add('critter');
       el.innerHTML = '';
       this.canvas = document.createElement('canvas');
@@ -492,7 +495,7 @@
       return [r.left + (BX - wide) * k, r.top + (BY - 6) * k, (BW + wide * 2) * k, (BH + 9) * k];
     }
 
-    burst(kind, n = 1) { for (let i = 0; i < n; i++) this.parts.push(this._particle(kind)); }
+    burst(kind, n = 1) { if (!this.particles) return; for (let i = 0; i < n; i++) this.parts.push(this._particle(kind)); }
     _particle(kind) {
       const R = (a, b) => a + Math.random() * (b - a);
       const P = { kind, age: 0, life: FX[kind].life, x: 0, y: 0, vx: 0, vy: 0, g: 0, spr: 0 };
@@ -514,7 +517,7 @@
 
     // ---------- drawing ----------
     _px(x, y, c) {
-      const col = PAL[c] || c;
+      const col = this.pal[c] || c;
       if (!col || x < 0 || y < 0 || x >= CW || y >= CH) return;
       this.b.fillStyle = col;
       this.b.fillRect(x | 0, y | 0, 1, 1);
@@ -643,6 +646,7 @@
       const sign = (s) => { const x = Math.round(bx + (bw - s.w) / 2), y = top - s.h - 2 - (f % 30 < 15 ? 0 : 1); this._spr(s, x, y); return [x, y]; };
       if (P.acc.includes('mute')) sign(MUTE);
       if (P.acc.includes('alert')) sign(ALERT);
+      if (P.acc.includes('check')) sign(CHECK);
       if (P.acc.includes('dots')) {   // ... thinking
         const n = 1 + ((f >> 2) % 3), y = top - 4 - (f % 30 < 15 ? 0 : 1);
         for (let i = 0; i < n; i++) { this._px(bx + bw + 1 + i * 2, y - i, 'G'); }
@@ -774,6 +778,7 @@
     destroy() { all.delete(this); clearTimeout(this._blinkT); this.el.innerHTML = ''; }
   }
 
+  Critter.addPose = (name, spec) => { POSES[name] = spec; };
   Critter.POSES = Object.keys(POSES);
   Critter.PAL = PAL;
   Critter.SIZE = [CW, CH];

@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mini</title>
+<link rel="stylesheet" href="pet.css">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; cursor: default; -webkit-user-select: none; user-select: none; }
+  #stage { position: relative; width: 100vw; height: 100vh; }
+  #pet { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); }
+  #bubbleWrap { position: absolute; z-index: 1; left: 0; right: 0; bottom: var(--bubble-bottom, 70px); display: flex; justify-content: center; pointer-events: none; }
+  #bubble { pointer-events: auto; max-width: calc(100vw - 16px); }
+  #bubble span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .px-bubble { font-size: 14px; padding: 3px 6px 4px; --u: 2px; }
+  .px-bubble.alert { --paper: #fff1d6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bubbleWrap"><div id="bubble" class="px-bubble" hidden><span></span></div></div>
+  <div id="pet"></div>
+</div>
+<script src="pet.js"></script>
+<script src="mini.js"></script>
+</body>
+</html>
