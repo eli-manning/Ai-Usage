@@ -76,7 +76,7 @@ public struct MinisConfig: Codable, Equatable, Sendable {
     public var animation = MiniAnimation.subtle
     public var placement = MiniPlacement.bottomRight
     /// Points per critter pixel.
-    public var scale: Double = 2
+    public var scale: Double = 2.5
     /// An idle session's mini goes away after this long without an event.
     public var idleMinutes: Double = 20
 

@@ -13,6 +13,7 @@ import UsageCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let usage = UsageService()
+    private let minis = MinisController()
 
     private lazy var statusItem = StatusItemController(
         usage: usage,
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .openWizardRequested, object: nil)
 
         apply(mode: resolvedMode())
+        minis.start()
 
         if !Settings.shared.setupComplete {
             openWizard()
@@ -88,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let view = SettingsView(
             usage: usage,
+            minis: minis,
             onDisplayModeChange: { [weak self] mode in self?.apply(mode: mode) },
             onRunWizard: { [weak self] in self?.openWizard() })
 
