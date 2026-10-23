@@ -2,14 +2,13 @@ import AppKit
 import Combine
 import UsageCore
 
-/// The minis: one small critter per running agent session, for every provider.
+/// The mini: one small critter on screen, in the look of the provider you pick in its panel (Claude, Codex,
+/// Antigravity or Cursor). It follows that provider's sessions and shows whichever needs you most.
 ///
-/// Hook scripts in each CLI's config post events to `HookServer`;
-/// `AgentSessionStore` turns them into sessions; this spawns a `MiniWindow` per
-/// session, keeps each one showing what its session is doing, and raises an
-/// alert (sound + notification) when a session finishes or needs you. The
-/// alert holds until you respond in that session or click the mini or the
-/// notification.
+/// Hook scripts in each CLI's config post events to `HookServer`; `AgentSessionStore` turns them into sessions.
+/// Every connected provider still raises alerts (sound + notification) when a session finishes or needs you,
+/// whichever mini is on screen. An alert holds until you respond in that session, or click the mini, the
+/// session in the panel, or the notification. Right-clicking the mini opens its panel (`MiniPanel`), Mochi's.
 @MainActor
 final class MinisController: ObservableObject {
 
@@ -24,16 +23,21 @@ final class MinisController: ObservableObject {
         }
     }
 
+    private let usage: UsageService
     private var store = AgentSessionStore()
     private let server = HookServer()
     private let alerts = AlertCenter()
-    private var windows: [String: MiniWindow] = [:]
-    /// Minis you hid from their menu, until their session ends.
-    private var hidden: Set<String> = []
+    private var window: MiniWindow?
+    private lazy var panel = makePanel()
+    /// Hidden from the panel's eye button, until something needs you.
+    private var hidden = false
+    /// Said under the panel after connecting a provider, e.g. that Codex wants the hook approved.
+    private var note: String?
     private var tickTimer: Timer?
     private var mouseTimer: Timer?
 
-    init() {
+    init(usage: UsageService) {
+        self.usage = usage
         config = Settings.shared.minis
         refreshInstalled()
     }
@@ -60,15 +64,18 @@ final class MinisController: ObservableObject {
         alerts.start()
         // The listener reports ready asynchronously.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.listening = self?.server.listening ?? false }
+        sync()
     }
 
     private func disable() {
         server.stop()
         listening = false
-        for id in Array(windows.keys) { closeWindow(id) }
+        panel.close()
+        window?.close()
+        window = nil
         for s in store.sessions.values { alerts.clear(s.id) }
         store = AgentSessionStore()
-        publish()
+        sync()
     }
 
     // MARK: - Hooks
@@ -91,26 +98,26 @@ final class MinisController: ObservableObject {
         else { return }
         // Mochi checking Claude usage runs Claude Code in its own folder: not a real session.
         if event.cwd.hasSuffix("/Application Support/Mochi") { return }
+        apply(event, pid: d.pid)
+    }
 
+    private func apply(_ event: AgentEvent, pid: Int32 = 0) {
         let key = AgentSession.key(event.provider, event.sessionID)
-        switch store.apply(event, pid: d.pid) {
+        switch store.apply(event, pid: pid) {
         case .alerted:
             if let s = store.sessions[key] {
-                hidden.remove(key)   // a hidden mini comes back to ask for you
+                if s.provider == config.provider { hidden = false }   // a hidden mini comes back to ask for you
                 alerts.raise(s, config: config)
             }
-        case .answered:
+        case .answered, .removed:
             alerts.clear(key)
-        case .removed:
-            alerts.clear(key)
-            hidden.remove(key)
         default:
             break
         }
         sync()
     }
 
-    // MARK: - Acting on a mini
+    // MARK: - Acting on sessions
 
     /// You looked at it.
     func acknowledge(_ id: String) {
@@ -126,159 +133,227 @@ final class MinisController: ObservableObject {
         app.activate()
     }
 
-    func hide(_ id: String) {
-        hidden.insert(id)
-        acknowledge(id)
-        sync()
-    }
-
-    func dismiss(_ id: String) {
-        store.remove(id)
-        alerts.clear(id)
-        hidden.remove(id)
-        sync()
-    }
-
+    /// Lets you see a provider's mini and hear its alert without a real session.
     func test(_ provider: String) {
-        // Lets you see a provider's mini and hear its alert without a real session.
+        config.provider = provider
         let id = "test-\(Int(Date().timeIntervalSince1970))"
-        store.apply(AgentEvent(provider: provider, sessionID: id, kind: .toolStart, activity: .editing,
-                               detail: "example.swift", cwd: NSHomeDirectory() + "/Example"))
-        sync()
+        let cwd = NSHomeDirectory() + "/Example"
+        apply(AgentEvent(provider: provider, sessionID: id, kind: .toolStart, activity: .editing, detail: "example.swift", cwd: cwd))
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-            guard let self else { return }
-            self.receiveTest(AgentEvent(provider: provider, sessionID: id, kind: .done, cwd: NSHomeDirectory() + "/Example"))
+            guard let self, self.store.sessions[AgentSession.key(provider, id)] != nil else { return }
+            self.apply(AgentEvent(provider: provider, sessionID: id, kind: .done, cwd: cwd))
         }
-    }
-
-    private func receiveTest(_ e: AgentEvent) {
-        let key = AgentSession.key(e.provider, e.sessionID)
-        guard store.sessions[key] != nil else { return }
-        if case .alerted = store.apply(e), let s = store.sessions[key] { alerts.raise(s, config: config) }
-        sync()
     }
 
     func previewSound(_ kind: AlertKind) {
         alerts.play(config.sound(kind), volume: config.volume)
     }
 
-    // MARK: - Windows
+    // MARK: - The window
 
     private func tick() {
         guard config.enabled else { return }
-        let removed = store.prune(idleTimeout: config.idleMinutes * 60)
-        for id in removed { alerts.clear(id); hidden.remove(id) }
+        for id in store.prune(idleTimeout: config.idleMinutes * 60) { alerts.clear(id) }
         alerts.tick(waiting: store.alerting, config: config)
         sync()
     }
 
-    /// Makes the windows match the sessions.
+    /// Makes the window match the chosen provider's sessions.
     private func sync() {
-        publish()
-        let visible = store.ordered.filter { !hidden.contains($0.id) }
-        let ids = Set(visible.map(\.id))
-        for id in windows.keys where !ids.contains(id) { closeWindow(id) }
-        let now = Date()
-        for s in visible {
-            let w = windows[s.id] ?? makeWindow(s.id)
-            let (state, detail) = s.display(now: now)
-            w.update([
-                "provider": s.provider, "state": state, "detail": detail, "project": s.project,
-                "speech": config.speech.rawValue, "animation": config.animation.rawValue,
-                "motion": config.motion.rawValue, "scale": config.scale,
-            ])
+        let next = store.ordered
+        if next != sessions { sessions = next }
+        panel.update()
+        guard config.enabled, !hidden else {
+            window?.panel.orderOut(nil)
+            updateMouseTracking()
+            return
         }
+        let w = window ?? makeWindow()
+        let s = store.shown(for: config.provider)
+        let (state, detail) = s?.display(now: Date()) ?? ("idle", "")
+        w.update([
+            "provider": config.provider, "state": state, "detail": detail, "project": s?.project ?? "",
+            "speech": config.speech.rawValue, "animation": config.animation.rawValue,
+            "motion": config.motion.rawValue, "scale": config.scale, "panel": panel.isOpen,
+        ])
         layout()
         updateMouseTracking()
     }
 
-    private func publish() {
-        let next = store.ordered
-        if next != sessions { sessions = next }
-    }
-
-    private func makeWindow(_ id: String) -> MiniWindow {
-        let w = MiniWindow(id: id, scale: config.scale)
-        w.onAction = { [weak self, weak w] action in
-            guard let self, let w else { return }
+    private func makeWindow() -> MiniWindow {
+        let w = MiniWindow(id: "mini", scale: config.scale)
+        w.onAction = { [weak self] action in
+            guard let self else { return }
             switch action {
-            case .click:
-                self.acknowledge(id)
-                self.focus(id)
-            case .menu:
-                w.showMenu(self.menu(for: id))
-            case .moved:
-                break
+            case .click: self.clicked()
+            case .menu: self.openPanel()
+            case .moved: break
             }
         }
-        windows[id] = w
+        window = w
         return w
     }
 
-    private func closeWindow(_ id: String) {
-        windows[id]?.close()
-        windows[id] = nil
+    /// Clicking the mini answers whatever it's showing: clears its alert and brings its session forward.
+    /// With nothing to show, it opens the panel instead.
+    private func clicked() {
+        guard let s = store.shown(for: config.provider) else { return openPanel() }
+        acknowledge(s.id)
+        focus(s.id)
     }
 
-    /// Lines up every mini that hasn't been dragged elsewhere along the bottom
-    /// of the main screen, in provider order.
+    /// In its corner, unless you've dragged it somewhere else.
     private func layout() {
+        guard let w = window, !hidden, config.enabled else { return }
+        guard !w.pinned else { if !w.panel.isVisible { w.panel.orderFrontRegardless() }; return }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let vf = screen.visibleFrame
-        let step = CGFloat(46 * config.scale) * 0.9 + 6
-        var i: CGFloat = 0
-        for s in store.ordered {
-            guard let w = windows[s.id], !w.pinned else { continue }
-            let offset = 40 + step / 2 + i * step
-            let x = config.placement == .bottomRight ? vf.maxX - offset : vf.minX + offset
-            w.place(foot: NSPoint(x: x, y: vf.minY))
-            i += 1
-        }
+        let offset = 40 + MiniWindow.size(scale: config.scale).width / 2
+        let x = config.placement == .bottomRight ? vf.maxX - offset : vf.minX + offset
+        w.place(foot: NSPoint(x: x, y: vf.minY))
     }
 
     private func updateMouseTracking() {
-        if windows.isEmpty {
+        let tracking = window?.panel.isVisible == true
+        if !tracking {
             mouseTimer?.invalidate()
             mouseTimer = nil
         } else if mouseTimer == nil {
             mouseTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    let m = NSEvent.mouseLocation
-                    self?.windows.values.forEach { $0.trackMouse(m) }
-                }
+                MainActor.assumeIsolated { self?.window?.trackMouse(NSEvent.mouseLocation) }
             }
         }
     }
 
     private func configChanged(from old: MinisConfig) {
         if config.enabled != old.enabled { config.enabled ? enable() : disable() }
-        if config.scale != old.scale { windows.values.forEach { $0.resize(scale: config.scale) } }
+        if config.scale != old.scale { window?.resize(scale: config.scale) }
+        if config.provider != old.provider { note = nil }
         if config.providers != old.providers {
-            for s in store.sessions.values where !config.providerOn(s.provider) { dismiss(s.id) }
+            for s in store.sessions.values where !config.providerOn(s.provider) {
+                store.remove(s.id)
+                alerts.clear(s.id)
+            }
         }
         sync()
     }
 
-    // MARK: - Menu
+    // MARK: - The panel
 
-    private func menu(for id: String) -> NSMenu {
-        let menu = NSMenu()
-        let s = store.sessions[id]
-        let name = s.flatMap { Provider.byID($0.provider)?.name } ?? "Session"
-        let title = NSMenuItem(title: [name, s?.project ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
-                               action: nil, keyEquivalent: "")
-        title.isEnabled = false
-        menu.addItem(title)
-        menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Show Session") { [weak self] in self?.acknowledge(id); self?.focus(id) })
-        if s?.alert != nil {
-            menu.addItem(ClosureMenuItem("Dismiss Alert") { [weak self] in self?.acknowledge(id) })
+    private func makePanel() -> MiniPanel {
+        let p = MiniPanel(webDir: MiniWindow.resources)
+        p.state = { [weak self] in self?.panelState() ?? [:] }
+        p.act = { [weak self] name, arg in self?.panelAction(name, arg) }
+        p.opened = { [weak self] _ in self?.sync() }
+        return p
+    }
+
+    private func openPanel() {
+        guard let w = window else { return }
+        let foot = w.foot
+        // The tallest critter's head is about 24 critter pixels over its feet.
+        panel.show(x: foot.x, top: foot.y + CGFloat(24 * config.scale), feet: foot.y)
+    }
+
+    private func panelState() -> [String: Any] {
+        let p = config.provider
+        let now = Date()
+        let mine = store.sessions(of: p)
+        let shown = store.shown(for: p)
+        var mood = "no sessions"
+        if hidden { mood = "hidden until something needs you" } else if let shown {
+            let (state, detail) = shown.display(now: now)
+            mood = [shown.project, Self.line(state, detail)].filter { !$0.isEmpty }.joined(separator: " · ")
         }
-        menu.addItem(ClosureMenuItem("Hide Until It Needs Me") { [weak self] in self?.hide(id) })
-        menu.addItem(ClosureMenuItem("Remove") { [weak self] in self?.dismiss(id) })
-        menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Mini Settings…") { NotificationCenter.default.post(name: .openSettingsRequested, object: nil) })
-        return menu
+        var state: [String: Any] = [
+            "provider": p, "mood": mood, "hidden": hidden,
+            "connected": installed[p] == true, "canConnect": HookInstaller.canInstall(p),
+            "listening": listening, "port": Int(HookServer.port),
+            "sessions": mine.map { s -> [String: Any] in
+                let (state, detail) = s.display(now: now)
+                return ["id": s.id, "project": s.project, "line": Self.line(state, detail),
+                        "need": s.alert == .needsInput || s.alert == .failed, "done": s.alert == .done,
+                        "busy": s.phase == .working]
+            },
+            "config": [
+                "scale": config.scale, "speech": config.speech.rawValue, "animation": config.animation.rawValue,
+                "motion": config.motion.rawValue, "repeatSeconds": config.repeatSeconds, "notifications": config.notifications,
+                "alerts": Dictionary(uniqueKeysWithValues: AlertKind.allCases.map { ($0.rawValue, config.alerts($0)) }),
+            ],
+        ]
+        if let note { state["followUp"] = note }
+        if let pct = usage.primaryPct(p) {
+            var u: [String: Any] = ["pct": pct]
+            if let at = usage.lastUpdated(p) {
+                u["updated"] = RelativeDateTimeFormatter().localizedString(for: at, relativeTo: now)
+            }
+            state["usage"] = u
+        }
+        return state
+    }
+
+    /// "editing App.swift", "needs input", "idle": a session's state the way the panel says it.
+    private static func line(_ state: String, _ detail: String) -> String {
+        let word: String
+        switch state {
+        case "needsInput": word = "needs input"
+        case "done": word = "finished"
+        case "tool": word = "using a tool"
+        default: word = state
+        }
+        return detail.isEmpty ? word : word + " " + detail
+    }
+
+    private func panelAction(_ name: String, _ arg: String?) {
+        switch name {
+        case "provider":
+            if let arg, Provider.byID(arg) != nil { config.provider = arg }
+        case "focus":
+            guard let arg else { return }
+            acknowledge(arg)
+            focus(arg)
+            panel.close()
+        case "dismissAll":
+            for s in store.sessions(of: config.provider) { acknowledge(s.id) }
+        case "visible":
+            hidden.toggle()
+            sync()
+        case "connect":
+            let p = config.provider, on = installed[p] != true
+            do {
+                try setInstalled(p, on)
+                note = on ? HookInstaller.targets[p]?.followUp : nil
+            } catch {
+                note = error.localizedDescription
+            }
+            sync()
+        case "set":
+            guard let arg, let eq = arg.firstIndex(of: "=") else { return }
+            set(String(arg[..<eq]), String(arg[arg.index(after: eq)...]))
+        case "settings":
+            panel.close()
+            NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
+        default:
+            break
+        }
+    }
+
+    /// One setting from the panel, as `key=value`.
+    private func set(_ key: String, _ value: String) {
+        var c = config
+        switch key {
+        case "scale": if let v = Double(value) { c.scale = v }
+        case "speech": if let v = MiniSpeech(rawValue: value) { c.speech = v }
+        case "animation": if let v = MiniAnimation(rawValue: value) { c.animation = v }
+        case "motion": if let v = MiniMotion(rawValue: value) { c.motion = v }
+        case "repeatSeconds": if let v = Double(value) { c.repeatSeconds = v }
+        case "notifications": c.notifications = value == "true"
+        default:
+            if key.hasPrefix("alert."), let kind = AlertKind(rawValue: String(key.dropFirst(6))) {
+                c.alertOn[kind.rawValue] = value == "true"
+            }
+        }
+        config = c
     }
 
     // MARK: - Finding a session's app
@@ -302,19 +377,4 @@ final class MinisController: ObservableObject {
         }
         return nil
     }
-}
-
-/// An NSMenuItem that runs a closure, so a menu can be built inline.
-final class ClosureMenuItem: NSMenuItem {
-    private let run: () -> Void
-
-    init(_ title: String, _ run: @escaping () -> Void) {
-        self.run = run
-        super.init(title: title, action: #selector(fire), keyEquivalent: "")
-        target = self
-    }
-
-    required init(coder: NSCoder) { fatalError("not used") }
-
-    @objc private func fire() { run() }
 }

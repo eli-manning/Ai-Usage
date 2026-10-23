@@ -69,7 +69,9 @@ public enum MiniPlacement: String, Codable, CaseIterable, Sendable {
 /// existed (or with one hand-edited out) still loads.
 public struct MinisConfig: Codable, Equatable, Sendable {
     public var enabled = true
-    /// Per provider; a provider missing from the map is on.
+    /// Which provider's mini is on screen. There's one mini; it follows this provider's sessions.
+    public var provider = "claude"
+    /// Which providers alert you, per provider; a provider missing from the map is on.
     public var providers: [String: Bool] = [:]
     public var motion = MiniMotion.still
     public var speech = MiniSpeech.status
@@ -104,7 +106,7 @@ public struct MinisConfig: Codable, Equatable, Sendable {
                                       "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"]
 
     private enum K: String, CodingKey {
-        case enabled, providers, motion, speech, animation, placement, scale, idleMinutes,
+        case enabled, provider, providers, motion, speech, animation, placement, scale, idleMinutes,
              alertOn, sounds, repeatSeconds, volume, notifications
     }
 
@@ -112,6 +114,7 @@ public struct MinisConfig: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: K.self)
         let d = MinisConfig()
         enabled = (try? c.decode(Bool.self, forKey: .enabled)) ?? d.enabled
+        provider = (try? c.decode(String.self, forKey: .provider)).flatMap { Provider.byID($0)?.id } ?? d.provider
         providers = (try? c.decode([String: Bool].self, forKey: .providers)) ?? d.providers
         motion = (try? c.decode(MiniMotion.self, forKey: .motion)) ?? d.motion
         speech = (try? c.decode(MiniSpeech.self, forKey: .speech)) ?? d.speech

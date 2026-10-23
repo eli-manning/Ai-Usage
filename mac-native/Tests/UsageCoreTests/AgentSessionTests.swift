@@ -129,10 +129,27 @@ final class AgentSessionTests: XCTestCase {
         XCTAssertEqual(s.display(now: t0.addingTimeInterval(5)).state, "thinking")
     }
 
+    func testTheMiniShowsWhatNeedsYouMost() {
+        var store = AgentSessionStore()
+        let t0 = Date()
+        store.apply(AgentEvent(provider: "codex", sessionID: "busy", kind: .toolStart, activity: .editing), now: t0)
+        store.apply(AgentEvent(provider: "claude", sessionID: "other", kind: .needsInput), now: t0)
+        XCTAssertEqual(store.shown(for: "codex")?.sessionID, "busy")   // another provider's alert isn't its business
+        store.apply(AgentEvent(provider: "codex", sessionID: "done", kind: .done), now: t0)
+        store.apply(AgentEvent(provider: "codex", sessionID: "ask", kind: .needsInput), now: t0.addingTimeInterval(5))
+        XCTAssertEqual(store.shown(for: "codex")?.sessionID, "ask")    // input beats a finish, even a newer one
+        store.acknowledge("codex:ask")
+        XCTAssertEqual(store.shown(for: "codex")?.sessionID, "done")
+        store.acknowledge("codex:done")
+        XCTAssertEqual(store.shown(for: "codex")?.sessionID, "busy")   // then whatever's working
+        XCTAssertNil(store.shown(for: "cursor"))
+    }
+
     func testConfigDecodesWithMissingKeys() throws {
-        let c = try JSONDecoder().decode(MinisConfig.self, from: Data(#"{"speech":"detailed"}"#.utf8))
+        let c = try JSONDecoder().decode(MinisConfig.self, from: Data(#"{"speech":"detailed","provider":"nope"}"#.utf8))
         XCTAssertEqual(c.speech, .detailed)
         XCTAssertEqual(c.motion, .still)
         XCTAssertEqual(c.sound(.done), "Glass")
+        XCTAssertEqual(c.provider, "claude")   // an unknown provider falls back to Claude
     }
 }

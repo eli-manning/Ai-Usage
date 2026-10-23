@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mini panel</title>
+<link rel="stylesheet" href="pet.css">
+<style>
+  /* A mini's panel: Mochi's panel (a big speech bubble in the same pixel border, paper, ink and font as the bubble
+     the mini talks in). --orange is the provider's colour here. */
+  html, body { margin: 0; background: transparent; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default; }
+  #wrap { display: inline-block; padding: 6px 9px 18px 6px; }     /* room for the border, the shadow and the tail */
+  #wrap.below { padding: 18px 9px 6px 6px; }
+  .card:focus { outline: none; }
+  .card.px-bubble { width: 316px; max-width: none; padding: 10px 12px 12px; font-size: 17px; }
+  .card.px-bubble::after { left: var(--tail-left, 50%); }
+  .card.px-bubble.pop { animation: panel-pop 0.2s steps(3, end); }   /* no fade: it must never get stuck invisible */
+  @keyframes panel-pop { from { transform: translateY(8px) scale(0.94); } }
+  .card { --muted: #8d7a6e; --soft: #f5ebe0; --line: #e6d8c9; --orange: var(--accent, #e5714b); --claude: #d97757; --red: #d9483b; }
+
+  :where(.card) button { all: unset; box-sizing: border-box; cursor: pointer; font: inherit; }
+  :where(.card) button:focus-visible { outline: 2px dashed #5a78e0; outline-offset: 2px; }
+
+  header { display: flex; align-items: center; gap: 8px; }
+  header .who { flex: 1; min-width: 0; line-height: 1; }
+  header .name { font-size: 24px; }
+  header .mood { color: var(--muted); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ghost { display: grid; place-items: center; width: 28px; height: 28px; }
+  .ghost:hover { background: var(--soft); }
+  .ghost.small-ghost { width: 20px; height: 20px; }
+
+  /* tabs: one framed strip, like the size picker; the open one is filled in */
+  nav { display: flex; margin: 12px 2px 4px; background: #f3e9dd;
+    box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), 0 4px 0 0 var(--shade); }
+  nav button { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 4px; height: 26px; padding: 0 7px 2px; font-size: 16px; white-space: nowrap; }
+  nav button + button { box-shadow: -2px 0 0 0 var(--line); }
+  nav button:hover { background: #ece0d2; }
+  nav button.on { background: var(--orange); color: #fff; }
+  nav button.on + button { box-shadow: none; }
+  nav button.gear { flex: 0 0 34px; padding: 0 0 1px; }
+
+  h2 { display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; font: inherit; font-size: 15px; color: var(--muted); }
+  h2 .end { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 14px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+
+  /* usage: a chunky bar in an ink frame */
+  .meter { margin-bottom: 9px; }
+  .meter .top { display: flex; justify-content: space-between; }
+  .bar { display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; padding: 2px; margin: 5px 2px 4px; background: var(--soft);
+    box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
+  .bar i { height: 8px; }
+  .bar i.lit { background: var(--fill); }
+
+
+  /* the bubble's own buttons, two or three to a row */
+  .btns { display: grid; gap: 10px 10px; padding: 2px 2px 4px; }
+  .btns.two { grid-template-columns: 1fr 1fr; }
+  .btns.four { grid-template-columns: repeat(4, 1fr); }
+  .card .pxb { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 4px 6px 5px; font-size: 16px; line-height: 1; text-align: center;
+    background: #f3e9dd; box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), 0 4px 0 0 var(--shade); }
+  .card .pxb.left { justify-content: flex-start; }
+  .btns.two .pxb { white-space: nowrap; padding-left: 5px; padding-right: 5px; }
+  .card .pxb.primary { background: var(--orange); color: #fff; }
+  .card .pxb:hover { filter: brightness(1.04); }
+  .card .pxb:active { transform: translateY(2px); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
+  .card .pxb .px-icon { margin: 0; }
+
+
+  /* settings: tall enough to scroll on a laptop screen; the padding keeps the rows' full-width hover inside the scroll box */
+  #body.scroll { max-height: 560px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+  #body.scroll::-webkit-scrollbar { width: 6px; }
+  #body.scroll::-webkit-scrollbar-thumb { background: var(--line); }
+  .set { box-sizing: border-box; display: flex; width: calc(100% + 12px); margin: 0 -6px; padding: 0 6px; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
+  button.set:hover { background-color: var(--soft); }
+  .set .pxb { padding: 2px 8px 3px; font-size: 15px; }
+  .set + .set { background-image: repeating-linear-gradient(90deg, var(--line) 0 3px, transparent 3px 6px); background-size: calc(100% - 12px) 2px; background-position: 6px 0; background-repeat: no-repeat; }
+  .set .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; background: var(--line); vertical-align: 2px; }
+  .set .dot.on { background: #4fae68; }
+  .set .dot.busy { background: var(--orange); }
+  .set .dot.need { background: var(--red); }
+  .sess > span { white-space: nowrap; }
+  .sess .line { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--muted); }
+  .sess .line.need { color: var(--red); }
+  .switch { position: relative; width: 30px; height: 14px; background: #e3d5c6;
+    box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--paper);
+    box-shadow: 0 0 0 2px var(--ink); transition: left 0.12s steps(3, end); }
+  .switch.on { background: var(--orange); }
+  .switch.on::after { left: 18px; }
+  .seg { display: flex; box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); background: #f3e9dd; }
+  .seg button { padding: 1px 7px 3px; font-size: 15px; }
+  .seg button + button { box-shadow: -2px 0 0 0 var(--line); }
+  .seg button.on { background: var(--orange); color: #fff; }
+  .foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .foot .muted { flex: 1; font-size: 14px; }
+  .empty { padding: 8px 0 4px; text-align: center; }
+  .empty p { margin: 6px 0 12px; color: var(--muted); font-size: 15px; }
+  .empty .pxb { display: inline-flex; padding: 4px 14px 5px; }
+  /* pick your mini: each provider's critter, live */
+  .closet { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .closet button { display: flex; flex-direction: column; align-items: center; padding: 2px 0 5px; background: var(--soft); }
+  .closet button:hover { background: #efe2d4; }
+  .closet button.on { background: var(--paper); box-shadow: 0 -2px 0 0 var(--orange), 0 2px 0 0 var(--orange), -2px 0 0 0 var(--orange), 2px 0 0 0 var(--orange); }
+  .closet .stage { width: 69px; height: 40px; overflow: hidden; display: flex; align-items: flex-end; justify-content: center; }
+  .closet .stage .critter { margin-bottom: -4px; }
+  .closet span { font-size: 14px; color: var(--muted); }
+  .closet button.on span { color: var(--ink); }
+  .who .tag { color: var(--muted); font-size: 15px; }
+  .line-now { font-size: 17px; }
+  .line-now.need { color: var(--red); }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="card" class="card px-bubble" tabindex="-1">
+  <header>
+    <div class="who"><div class="name" id="name"></div><div class="mood" id="mood"></div></div>
+    <button class="ghost" id="eye"></button>
+  </header>
+  <nav id="tabs"></nav>
+  <div id="body"></div>
+</div>
+</div>
+<script src="pet.js"></script>
+<script src="icons.js"></script>
+<script src="looks.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>

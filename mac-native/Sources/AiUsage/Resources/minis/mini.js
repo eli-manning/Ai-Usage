@@ -1,19 +1,10 @@
-/* One mini: a pixel critter standing in for one agent session. The app tells it what the session is doing
-   (mini.update) and it picks a pose and a word. No personality on purpose: it reports status, it doesn't chat. */
+/* The mini: a pixel critter in the look of the provider you picked, standing in for whichever of its sessions needs
+   you most. The app tells it what that session is doing (mini.update) and it picks a pose and a word. No personality
+   on purpose: it reports status, it doesn't chat. */
 (function () {
   'use strict';
 
-  // Each provider's own critter (see SPECIES in pet.js). Claude is Mochi, Claude Code's mascot.
-  const LOOKS = {
-    claude: {},
-    // Codex's pet: periwinkle, with light eyes on its dark visor.
-    codex: { species: 'codex', palette: { b: '#7183F2', l: '#97A6FF', s: '#5262D2', d: '#3C49A8', p: '#B9C3FF', e: '#D9E4FF' } },
-    // Gemini's gradient, blue at the top to rose at the bottom.
-    antigravity: { species: 'sparkle', palette: { l: '#4E8FF0', b: '#8C78D6', s: '#C9698D', d: '#9A4C6C', p: '#F0B7C9' } },
-    // Lit from above: pale top, Cursor purple on the left, shade on the right.
-    cursor: { species: 'cube', palette: { l: '#D6CFFF', b: '#8B7CF6', s: '#5B4BC9', d: '#43379C', p: '#C9C0FD' } },
-  };
-  const NAMES = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', antigravity: 'Antigravity' };
+
 
   // Neutral versions of Mochi's poses: no blushing, cheering, hearts or confetti.
   Critter.addPose('miniIdle', { anim: 'slow' });
@@ -55,9 +46,9 @@
 
   const petEl = document.getElementById('pet');
   const bubble = document.getElementById('bubble');
-  const bubbleText = bubble.firstElementChild;
+  const bubbleText = bubble.querySelector('.b-text');
   let critter = null;
-  let s = { provider: 'claude', state: 'idle', detail: '', project: '', speech: 'status', animation: 'subtle', motion: 'still', scale: 2 };
+  let s = { provider: 'claude', state: 'idle', detail: '', project: '', speech: 'status', animation: 'subtle', motion: 'still', scale: 2, panel: false };
   let built = '';
   let hovering = false;
 
@@ -66,7 +57,7 @@
     if (key === built) return;
     built = key;
     if (critter) critter.destroy();
-    const look = LOOKS[s.provider] || {};
+    const look = MINI_LOOKS[s.provider] || {};
     critter = new Critter(petEl, { scale: s.scale, palette: look.palette, species: look.species, particles: s.animation === 'full' });
     document.documentElement.style.setProperty('--bubble-bottom', 25 * s.scale + 4 + 'px');
   }
@@ -74,13 +65,14 @@
   const working = () => s.state !== 'idle' && !ALERTS.includes(s.state);
 
   function poseFor() {
+    if (s.panel) return 'tinker';   // holds up a gear while its panel is open, like Mochi
     const set = POSES[s.animation] || POSES.subtle;
     if (s.motion === 'pace' && working() && pacing) return 'miniPace';
     return set[s.state] || (working() ? 'miniThink' : 'miniIdle');
   }
 
   function text() {
-    const who = NAMES[s.provider] || s.provider;
+    const who = (MINI_LOOKS[s.provider] || {}).name || s.provider;
     if (hovering) {
       const where = s.project ? who + ' · ' + s.project : who;
       const what = WORDS[s.state];
@@ -104,9 +96,12 @@
     if (t !== lastText) {
       lastText = t;
       bubbleText.textContent = t;
+      const appearing = bubble.hidden && !!t;
       bubble.hidden = !t;
       bubble.classList.toggle('alert', ALERTS.includes(s.state) && s.state !== 'done');
+      if (appearing) { bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop'); }
     }
+    document.body.classList.toggle('panel', !!s.panel);
     requestAnimationFrame(sendHot);
   }
 
@@ -115,7 +110,7 @@
   function sendHot() {
     if (!critter) return;
     const rects = [critter.hitBox()];
-    if (!bubble.hidden) { const r = bubble.getBoundingClientRect(); rects.push([r.left, r.top, r.width, r.height]); }
+    if (!bubble.hidden && !s.panel) { const r = bubble.getBoundingClientRect(); rects.push([r.left, r.top, r.width, r.height]); }
     const out = rects.map((r) => r.map(Math.round));
     const k = JSON.stringify(out);
     if (k !== lastHot) { lastHot = k; post({ type: 'hot', rects: out }); }

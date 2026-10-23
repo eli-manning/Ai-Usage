@@ -12,14 +12,17 @@ struct MinisSettingsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
             SettingsSection(
-                title: "Minis",
-                caption: "A small critter for every running session, coloured by provider. Each provider's CLI reports to this app through a hook in its own config; nothing leaves your Mac."
+                title: "Mini",
+                caption: "One small critter on screen that follows the agent sessions of the provider you pick. Right-click it for its panel. Each provider's CLI reports to this app through a hook in its own config; nothing leaves your Mac."
             ) {
                 VStack(spacing: 12) {
-                    SettingRow(title: "Show minis", detail: minis.listening || !minis.config.enabled
-                               ? "One per session, while it's open."
+                    SettingRow(title: "Show the mini", detail: minis.listening || !minis.config.enabled
+                               ? "Connected providers alert you whichever mini is on screen."
                                : "Couldn't listen on port \(HookServer.port) — is another copy running?") {
                         Toggle("", isOn: $minis.config.enabled).switchStyle()
+                    }
+                    SettingRow(title: "Mini", detail: "Whose sessions it follows, and what it looks like.") {
+                        picker($minis.config.provider, Provider.ids, { Provider.byID($0)?.name ?? $0 })
                     }
                     providers
                     if let followUp {
@@ -91,7 +94,7 @@ struct MinisSettingsSection: View {
     // MARK: - Behaviour
 
     private var behaviour: some View {
-        SettingsSection(title: "Mini behaviour", caption: nil) {
+        SettingsSection(title: "Mini behaviour", caption: "The switch beside each provider above turns its alerts on or off.") {
             VStack(spacing: 12) {
                 SettingRow(title: "Speech", detail: "What the bubble says.") {
                     picker($minis.config.speech, MiniSpeech.allCases, \.title)
@@ -99,16 +102,16 @@ struct MinisSettingsSection: View {
                 SettingRow(title: "Animation", detail: "Full is Mochi's original poses; Minimal is a status light with eyes.") {
                     picker(bind(\.animation), MiniAnimation.allCases, \.title)
                 }
-                SettingRow(title: "Movement", detail: "Drag a mini to put it somewhere else.") {
+                SettingRow(title: "Movement", detail: "Drag the mini to put it somewhere else.") {
                     picker($minis.config.motion, MiniMotion.allCases, \.title)
                 }
-                SettingRow(title: "Line up along", detail: nil) {
+                SettingRow(title: "Corner", detail: nil) {
                     picker($minis.config.placement, MiniPlacement.allCases, \.title)
                 }
                 SettingRow(title: "Size", detail: nil) {
                     Slider(value: $minis.config.scale, in: 1.5...4, step: 0.5).frame(width: 140)
                 }
-                SettingRow(title: "Remove idle minis after", detail: "Minis waiting on you always stay.") {
+                SettingRow(title: "Forget idle sessions after", detail: "Sessions waiting on you always stay.") {
                     picker($minis.config.idleMinutes, [5, 10, 20, 60, 240], { "\(Int($0)) min" })
                 }
             }
@@ -121,7 +124,7 @@ struct MinisSettingsSection: View {
     private var alerts: some View {
         SettingsSection(
             title: "Alerts",
-            caption: "An alert holds until you reply in that session, or click the mini or its notification."
+            caption: "An alert holds until you reply in that session, or click the mini, the session in its panel, or the notification."
         ) {
             VStack(spacing: 12) {
                 ForEach(AlertKind.allCases, id: \.self) { kind in

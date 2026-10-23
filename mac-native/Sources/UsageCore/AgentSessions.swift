@@ -186,6 +186,21 @@ public struct AgentSessionStore: Sendable {
         return removed
     }
 
+    /// One provider's sessions, most recently active first.
+    public func sessions(of provider: String) -> [AgentSession] {
+        sessions.values.filter { $0.provider == provider }.sorted { $0.lastEvent > $1.lastEvent }
+    }
+
+    /// The session the mini shows for a provider: whatever needs you most (input, then a failure, then a
+    /// finish, oldest first), else the busiest working one, else the most recent.
+    public func shown(for provider: String) -> AgentSession? {
+        let mine = sessions(of: provider)
+        let rank: [AlertKind: Int] = [.needsInput: 0, .failed: 1, .done: 2]
+        if let a = mine.filter({ $0.alert != nil })
+            .min(by: { (rank[$0.alert!]!, $0.alertAt) < (rank[$1.alert!]!, $1.alertAt) }) { return a }
+        return mine.first { $0.phase == .working } ?? mine.first
+    }
+
     public var alerting: [AgentSession] {
         sessions.values.filter { $0.alert != nil }.sorted { $0.alertAt < $1.alertAt }
     }

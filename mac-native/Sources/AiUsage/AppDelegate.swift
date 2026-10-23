@@ -13,7 +13,7 @@ import UsageCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let usage = UsageService()
-    private let minis = MinisController()
+    private lazy var minis = MinisController(usage: usage)
 
     private lazy var statusItem = StatusItemController(
         usage: usage,

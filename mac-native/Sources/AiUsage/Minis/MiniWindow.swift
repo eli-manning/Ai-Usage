@@ -2,7 +2,7 @@ import AppKit
 import WebKit
 import UsageCore
 
-/// The borderless, always-on-top window one mini lives in.
+/// The borderless, always-on-top window the mini lives in.
 ///
 /// Transparent everywhere but the critter and its bubble: the page reports
 /// those areas (`hot`), and the window only takes the mouse while the pointer
@@ -146,16 +146,10 @@ final class MiniWindow: NSObject, WKScriptMessageHandler {
             break
         }
     }
-
-    func showMenu(_ menu: NSMenu) {
-        let m = NSEvent.mouseLocation
-        let f = panel.frame
-        menu.popUp(positioning: nil, at: NSPoint(x: m.x - f.minX, y: m.y - f.minY), in: web)
-    }
 }
 
 /// WKUserContentController holds its handlers strongly; this breaks the cycle.
-private final class WeakHandler: NSObject, WKScriptMessageHandler {
+final class WeakHandler: NSObject, WKScriptMessageHandler {
     weak var target: (WKScriptMessageHandler & AnyObject)?
     init(_ target: WKScriptMessageHandler & AnyObject) { self.target = target }
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
