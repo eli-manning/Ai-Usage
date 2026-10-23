@@ -1,11 +1,14 @@
 import AppKit
 import WebKit
 
-/// What opens when you right-click the mini: Mochi's panel, a big pixel speech bubble (minis/panel.html) in its own
-/// floating window with its tail pointing at the mini. This is the window and the messages to and from the page;
-/// `MinisController` decides what's in it and does what you click.
+/// Mochi's panel: a big pixel speech bubble (one of the Resources/web pages) in its own floating window, its tail
+/// pointing at whatever opened it. The menu bar dropdown and the mini's panel are both one. This is the window and
+/// the messages to and from the page; its owner decides what's in it and does what you click.
+///
+/// The page implements `panel.show(state, below)`, `panel.update(state)` and `panel.place(tailX, below)`, and posts
+/// `{type: 'act' | 'tab' | 'size' | 'close'}` back (see mini-panel.js).
 @MainActor
-final class MiniPanel: NSObject, WKScriptMessageHandler {
+final class BubblePanel: NSObject, WKScriptMessageHandler {
 
     /// Takes key focus without activating the app, so Escape reaches the page.
     final class KeyPanel: NSPanel {
@@ -13,29 +16,28 @@ final class MiniPanel: NSObject, WKScriptMessageHandler {
     }
 
     private let window: KeyPanel
-    private let web: MiniWindow.WebView
+    private let web: Web.View
     private var monitors: [Any] = []
     private var timer: Timer?
     private var size = NSSize(width: 340, height: 300)   // the page reports its real size
-    private var mini = (x: CGFloat(0), top: CGFloat(0), feet: CGFloat(0))
+    private var anchor = (x: CGFloat(0), top: CGFloat(0), feet: CGFloat(0))
     private var below = false
     private var tab: String?
     var state: () -> [String: Any] = { [:] }
     /// You clicked something: an action name and its argument.
     var act: (String, String?) -> Void = { _, _ in }
-    /// The mini holds up a gear while it's open.
     var opened: (Bool) -> Void = { _ in }
     var isOpen: Bool { window.isVisible }
 
-    init(webDir: URL?) {
+    init(page: String) {
         let cfg = WKWebViewConfiguration()
-        web = MiniWindow.WebView(frame: NSRect(origin: .zero, size: size), configuration: cfg)
+        web = Web.View(frame: NSRect(origin: .zero, size: size), configuration: cfg)
         web.setValue(false, forKey: "drawsBackground")
         window = KeyPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.nonactivatingPanel, .borderless],
                           backing: .buffered, defer: false)
         super.init()
-        cfg.userContentController.add(WeakHandler(self), name: "panel")
-        if let webDir { web.loadFileURL(webDir.appendingPathComponent("panel.html"), allowingReadAccessTo: webDir) }
+        cfg.userContentController.add(Web.WeakHandler(self), name: "panel")
+        Web.load(page, in: web)
         window.contentView = web
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -44,11 +46,11 @@ final class MiniPanel: NSObject, WKScriptMessageHandler {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
     }
 
-    /// Opens pointing at the mini: `x` its middle, `top` just over its head, `feet` under it (screen coordinates).
-    /// Right-clicking the mini again closes it.
+    /// Opens pointing at its anchor: `x` its middle, `top` just over it, `feet` under it (screen coordinates).
+    /// Above if there's room, below if not. Showing it again while it's open closes it.
     func show(x: CGFloat, top: CGFloat, feet: CGFloat) {
         if isOpen { return close() }
-        mini = (x, top, feet)
+        anchor = (x, top, feet)
         below = !fitsAbove(size.height)
         place()
         window.orderFrontRegardless()
@@ -56,7 +58,7 @@ final class MiniPanel: NSObject, WKScriptMessageHandler {
         window.makeFirstResponder(web)
         var s = state()
         if let tab { s["tab"] = tab }
-        web.evaluateJavaScript("panel.show(\(Self.json(s)), \(below))")
+        web.evaluateJavaScript("panel.show(\(Web.json(s)), \(below))")
         opened(true)
 
         // nothing closes a borderless panel by itself: a click anywhere else does
@@ -75,7 +77,7 @@ final class MiniPanel: NSObject, WKScriptMessageHandler {
     /// New numbers for the page; it only redraws when something changed.
     func update() {
         guard isOpen else { return }
-        web.evaluateJavaScript("panel.update(\(Self.json(state())))")
+        web.evaluateJavaScript("panel.update(\(Web.json(state())))")
     }
 
     func close() {
@@ -106,24 +108,19 @@ final class MiniPanel: NSObject, WKScriptMessageHandler {
     }
 
     private func screen() -> NSRect {
-        let p = NSPoint(x: mini.x, y: mini.feet + 1)
+        let p = NSPoint(x: anchor.x, y: anchor.feet - 1)
         return (NSScreen.screens.first { $0.frame.contains(p) } ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
     }
 
-    private func fitsAbove(_ h: CGFloat) -> Bool { mini.top + h <= screen().maxY }
+    private func fitsAbove(_ h: CGFloat) -> Bool { anchor.top + h <= screen().maxY }
 
-    /// Above the mini's head if there's room, under its feet if not; slid sideways to stay on screen, tail on the mini.
+    /// Above the anchor if there's room, under it if not; slid sideways to stay on screen, tail on the anchor.
     private func place() {
         let v = screen()
-        let x = min(max(mini.x - size.width / 2, v.minX + 4), v.maxX - size.width - 4)
-        let y = min(max(below ? mini.feet - size.height : mini.top, v.minY), v.maxY - size.height)
-        let tail = min(max(mini.x - x, 28), size.width - 28)
+        let x = min(max(anchor.x - size.width / 2, v.minX + 4), v.maxX - size.width - 4)
+        let y = min(max(below ? anchor.feet - size.height : anchor.top, v.minY), v.maxY - size.height)
+        let tail = min(max(anchor.x - x, 28), size.width - 28)
         web.evaluateJavaScript("panel.place(\(Int(tail)), \(below))")
         window.setFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height), display: true)
-    }
-
-    private static func json(_ obj: Any) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: obj), let s = String(data: data, encoding: .utf8) else { return "{}" }
-        return s
     }
 }

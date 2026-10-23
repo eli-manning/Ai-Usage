@@ -8,7 +8,7 @@ import UsageCore
 /// Hook scripts in each CLI's config post events to `HookServer`; `AgentSessionStore` turns them into sessions.
 /// Every connected provider still raises alerts (sound + notification) when a session finishes or needs you,
 /// whichever mini is on screen. An alert holds until you respond in that session, or click the mini, the
-/// session in the panel, or the notification. Right-clicking the mini opens its panel (`MiniPanel`), Mochi's.
+/// session in the panel, or the notification. Right-clicking the mini opens its panel (`BubblePanel`), Mochi's.
 @MainActor
 final class MinisController: ObservableObject {
 
@@ -240,8 +240,8 @@ final class MinisController: ObservableObject {
 
     // MARK: - The panel
 
-    private func makePanel() -> MiniPanel {
-        let p = MiniPanel(webDir: MiniWindow.resources)
+    private func makePanel() -> BubblePanel {
+        let p = BubblePanel(page: "mini-panel.html")
         p.state = { [weak self] in self?.panelState() ?? [:] }
         p.act = { [weak self] name, arg in self?.panelAction(name, arg) }
         p.opened = { [weak self] _ in self?.sync() }

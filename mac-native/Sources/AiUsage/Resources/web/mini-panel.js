@@ -1,4 +1,4 @@
-/* The mini's panel (panel.html), opened by right-clicking the mini: Mochi's panel, for agent sessions. The app hands
+/* The mini's panel (mini-panel.html), opened by right-clicking the mini: Mochi's panel, for agent sessions. The app hands
    it everything to show as one state object and gets back what you click: panel.show(state, below) when it opens,
    panel.update(state) every second while open, panel.place(tailX, below) to point the tail at the mini. It posts
    {type: 'act' | 'tab' | 'size' | 'close'} to the app. Also opens in a browser with sample data, for working on the look. */
