@@ -47,6 +47,9 @@ env["TERM"] = "dumb"
 env["FORCE_COLOR"] = "0"
 env["CLAUDE_CODE_DISABLE_ANIMATIONS"] = "true"
 env["PATH"] = CLILocator.augmentedPATH(env["PATH"])
+// Marks this run as a usage check, so the minis' hook script ignores the
+// session it opens — it's this app reading a screen, not anyone working.
+env["AIUSAGE_PROBE"] = "1"
 
 // A SIGTERM from the parent (its own watchdog firing) should still print
 // whatever was captured rather than dying silently — matching the Python
