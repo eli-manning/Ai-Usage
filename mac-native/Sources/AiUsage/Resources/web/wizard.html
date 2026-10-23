@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Welcome to AI Usage</title>
+<link rel="stylesheet" href="pet.css">
+<link rel="stylesheet" href="ui.css">
+<style>
+  /* The setup wizard: one big Mochi panel filling the window, under the transparent title bar. */
+  html, body { height: 100%; background: #fffaf3; }
+  .card.px-bubble { position: absolute; top: 34px; left: 17px; right: 17px; bottom: 20px; width: auto; margin: 0;
+    display: flex; flex-direction: column; padding: 14px 16px 14px; }
+  .card.px-bubble::after { display: none; }   /* nothing to point at */
+
+  header .name { font-size: 28px; }
+  header .mood { font-size: 16px; margin-top: 3px; white-space: normal; }
+  #body { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 10px; }
+  #body p { margin: 0 0 10px; font-size: 17px; line-height: 1.2; }
+  .grow { flex: 1; }
+
+  /* critters on little stages, feet on the floor */
+  .stage { display: flex; align-items: flex-end; justify-content: center; overflow: hidden; flex: none; }
+  .stage .critter { margin-bottom: -6px; }
+  .row { display: flex; justify-content: space-between; margin: 6px 0 14px; }
+  .row .stage { width: 92px; height: 68px; }
+  .row .stage .critter { margin-bottom: -10px; }
+  .floor { height: 2px; margin: -14px 4px 16px; background: var(--line); }
+  .hero { display: flex; justify-content: center; }
+  .hero .stage { width: 160px; height: 100px; }
+  .hero .stage .critter { margin-bottom: -12px; }
+
+  /* one tool: its mini, what's going on, and the button that gets it working */
+  .det { min-height: 54px; justify-content: flex-start; gap: 10px; }
+  .det .stage { width: 46px; height: 36px; }
+  .det .who { flex: 1; min-width: 0; line-height: 1.05; }
+  .det .line { font-size: 15px; color: var(--muted); }
+  .det .line.ok { color: #4fae68; }
+  .det .line.warn { color: #c98a1e; }
+  .det .line.bad { color: var(--red); }
+  .det .mark { font-size: 15px; color: var(--muted); }
+
+  /* where it lives: two tiles with a tiny drawing of each */
+  .where { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .where button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 9px; background: var(--soft); text-align: center; }
+  .where button:hover { background: #efe2d4; }
+  .where button.on { background: var(--paper); box-shadow: 0 -2px 0 0 var(--orange), 0 2px 0 0 var(--orange), -2px 0 0 0 var(--orange), 2px 0 0 0 var(--orange); }
+  .where .t { font-size: 18px; }
+  .where .d { font-size: 14px; color: var(--muted); line-height: 1.1; }
+  .screen { position: relative; width: 84px; height: 50px; background: #3a2c28;
+    box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
+  .screen::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 7px; background: #5c4a44; }
+  .screen i { position: absolute; display: block; background: var(--orange); }
+  .screen i.badge { top: 1px; right: 6px; width: 10px; height: 5px; }
+  .screen i.pill { top: 0; left: 31px; width: 22px; height: 11px; background: #120c0b; }
+  .screen i.pill::after { content: ""; position: absolute; left: 8px; top: 7px; width: 6px; height: 2px; background: var(--orange); }
+
+  .foot { margin-top: 10px; }
+  .steps { flex: 1; display: flex; gap: 5px; }
+  .steps i { width: 6px; height: 6px; background: var(--line); }
+  .steps i.on { background: var(--ink); }
+  .foot .pxb { padding: 4px 12px 5px; }
+</style>
+</head>
+<body>
+<div id="card" class="card px-bubble">
+  <header><div class="who"><div class="name" id="title"></div><div class="mood" id="sub"></div></div></header>
+  <div id="body"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script src="pet.js"></script>
+<script src="icons.js"></script>
+<script src="looks.js"></script>
+<script src="wizard.js"></script>
+</body>
+</html>

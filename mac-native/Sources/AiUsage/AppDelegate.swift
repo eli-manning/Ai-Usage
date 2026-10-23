@@ -17,13 +17,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private lazy var statusItem = StatusItemController(
         usage: usage,
-        onOpenSettings: { [weak self] in self?.openSettings() },
-        onRunWizard: { [weak self] in self?.openWizard() })
+        onOpenSettings: { [weak self] in self?.openSettings() })
 
     private lazy var panel = PanelController(usage: usage)
 
-    private var settingsWindow: NSWindow?
-    private var wizardWindow: NSWindow?
+    private lazy var settings = SettingsPage(
+        usage: usage, minis: minis,
+        onDisplayModeChange: { [weak self] mode in self?.apply(mode: mode) },
+        onRunWizard: { [weak self] in self?.openWizard() })
+
+    private lazy var wizard = WizardPage(
+        usage: usage,
+        onDisplayModeChange: { [weak self] mode in self?.apply(mode: mode) },
+        onFinish: {})
+
     private var currentMode: DisplayMode?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -81,71 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Windows
 
-    @objc func openSettings() {
-        if let settingsWindow {
-            settingsWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
+    @objc func openSettings() { settings.show() }
 
-        let view = SettingsView(
-            usage: usage,
-            minis: minis,
-            onDisplayModeChange: { [weak self] mode in self?.apply(mode: mode) },
-            onRunWizard: { [weak self] in self?.openWizard() })
-
-        let window = makeWindow(title: "AI Usage Settings", content: view)
-        window.delegate = self
-        settingsWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    @objc func openWizard() {
-        if let wizardWindow {
-            wizardWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        let view = WizardView(
-            usage: usage,
-            onDisplayModeChange: { [weak self] mode in self?.apply(mode: mode) },
-            onFinish: { [weak self] in
-                self?.wizardWindow?.close()
-                self?.wizardWindow = nil
-            })
-
-        let window = makeWindow(title: "Welcome", content: view)
-        window.delegate = self
-        wizardWindow = window
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func makeWindow<V: View>(title: String, content: V) -> NSWindow {
-        let hosting = NSHostingController(rootView: content)
-        let window = NSWindow(contentViewController: hosting)
-        window.title = title
-        window.styleMask = [.titled, .closable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
-        window.backgroundColor = NSColor(Theme.bg)
-        window.appearance = NSAppearance(named: .darkAqua)
-        // An accessory-policy app has no Dock icon to restore a window from, so
-        // a released window would be unreachable — keep them alive and reuse.
-        window.isReleasedWhenClosed = false
-        return window
-    }
-}
-
-extension AppDelegate: NSWindowDelegate {
-    nonisolated func windowWillClose(_ notification: Notification) {
-        Task { @MainActor in
-            guard let closing = notification.object as? NSWindow else { return }
-            if closing === settingsWindow { settingsWindow = nil }
-            if closing === wizardWindow { wizardWindow = nil }
-        }
-    }
+    @objc func openWizard() { wizard.show() }
 }
