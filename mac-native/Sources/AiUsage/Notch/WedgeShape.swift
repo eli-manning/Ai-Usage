@@ -67,36 +67,6 @@ struct ArcShape: Shape {
     }
 }
 
-/// Neon glow for a shape's stroke — a sharp core stroke plus a wider,
-/// blurred copy of the same stroke underneath. Adapted from Atoll's
-/// `glow()` helper (animations/HelloAnimation.swift).
-extension Shape {
-    func glow(color: Color, lineWidth: Double, blurRadius: Double = 8) -> some View {
-        self
-            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            .overlay(
-                self
-                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth * 2.2, lineCap: .round))
-                    .blur(radius: blurRadius)
-            )
-    }
-}
-
-/// Soft radial aura behind an icon/badge — adapted from Atoll's
-/// PrivacyIndicatorIcon glow.
-struct IconAura: View {
-    var color: Color
-    var size: CGFloat
-
-    var body: some View {
-        Circle()
-            .fill(RadialGradient(colors: [color.opacity(0.4), color.opacity(0.14), .clear],
-                                  center: .center, startRadius: 0, endRadius: size / 2))
-            .frame(width: size, height: size)
-            .blendMode(.plusLighter)
-    }
-}
-
 extension CGPoint {
     static func onArc(cx: CGFloat, cy: CGFloat, r: CGFloat, deg: Double) -> CGPoint {
         let rad = deg * .pi / 180

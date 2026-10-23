@@ -2,8 +2,8 @@ import SwiftUI
 import UsageCore
 
 enum IconKind {
-    case svg(String)   // real brand mark path data
-    case symbol(String) // SF Symbol name
+    case critter(String) // a provider's mini, by provider id
+    case symbol(String)  // SF Symbol name
 }
 
 /// A single ring bubble — either a provider (top level) or one of a
@@ -26,7 +26,7 @@ struct Bubble: Identifiable {
     static func providers(claude: ClaudeUsage, providerStatus: [String: ProviderStatus], antigravity: GeminiUsage?, codex: CodexUsage?, cursor: CursorUsage?) -> [Bubble] {
         Provider.all.map { p in
             if p.id == "claude" {
-                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .critter(p.id),
                               pct: claude.session,
                               big: claude.session != nil ? "\(claude.session!)%" : "—",
                               sub: claude.errorType == "offline" ? "Offline" : nil)
@@ -37,25 +37,25 @@ struct Bubble: Identifiable {
                 // the 5-hour window is Antigravity's rolling short-term
                 // quota, falling back to weekly if that's all that parsed.
                 let pct = g.fiveHourPct ?? g.weeklyPct
-                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .critter(p.id),
                               pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
             }
             if p.id == "codex", status.state == .loggedIn, let c = codex {
                 let pct = c.primaryPct
-                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .critter(p.id),
                               pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
             }
             if p.id == "cursor", status.state == .loggedIn, let cu = cursor {
                 let pct = cu.primaryPct
-                return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+                return Bubble(id: p.id, label: p.name, color: p.color, icon: .critter(p.id),
                               pct: pct, big: pct != nil ? "\(pct!)%" : "—", sub: nil)
             }
-            return Bubble(id: p.id, label: p.name, color: p.color, icon: .svg(p.icon),
+            return Bubble(id: p.id, label: p.name, color: p.color, icon: .critter(p.id),
                           pct: nil, big: "", sub: status.message(installHint: p.hint))
         }
     }
 
-    static let claudeOrange = Color(hex: "CC785C")
+    static let claudeOrange = Color(hex: "E5714B")   // Mochi's orange, Claude's colour across the app
 
     /// A generic, provider-agnostic filler wedge — "when did we last hear
     /// from this provider" is always known (`UsageService.lastRefreshed`),

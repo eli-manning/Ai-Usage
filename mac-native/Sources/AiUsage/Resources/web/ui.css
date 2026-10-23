@@ -1,12 +1,7 @@
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Mini panel</title>
-<link rel="stylesheet" href="pet.css">
-<style>
-  /* A mini's panel: Mochi's panel (a big speech bubble in the same pixel border, paper, ink and font as the bubble
-     the mini talks in). --orange is the provider's colour here. */
+/* The app's look, shared by every page: Mochi's panel. A big pixel speech bubble (pet.css's .px-bubble) holding
+   tabs, meters, rows, switches and chunky buttons, all in the same paper, ink and Jersey 15. --accent is the colour
+   of whichever provider the page is about. */
+
   html, body { margin: 0; background: transparent; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default; }
   #wrap { display: inline-block; padding: 6px 9px 18px 6px; }     /* room for the border, the shadow and the tail */
   #wrap.below { padding: 18px 9px 6px 6px; }
@@ -51,6 +46,10 @@
   .bar i { height: 8px; }
   .bar i.lit { background: var(--fill); }
 
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; }
+  .stats b { display: block; font-weight: 400; font-size: 25px; line-height: 1; }
+  .stats span { font-size: 14px; color: var(--muted); }
 
   /* the bubble's own buttons, two or three to a row */
   .btns { display: grid; gap: 10px 10px; padding: 2px 2px 4px; }
@@ -108,22 +107,3 @@
   .who .tag { color: var(--muted); font-size: 15px; }
   .line-now { font-size: 17px; }
   .line-now.need { color: var(--red); }
-</style>
-</head>
-<body>
-<div id="wrap">
-<div id="card" class="card px-bubble" tabindex="-1">
-  <header>
-    <div class="who"><div class="name" id="name"></div><div class="mood" id="mood"></div></div>
-    <button class="ghost" id="eye"></button>
-  </header>
-  <nav id="tabs"></nav>
-  <div id="body"></div>
-</div>
-</div>
-<script src="pet.js"></script>
-<script src="icons.js"></script>
-<script src="looks.js"></script>
-<script src="panel.js"></script>
-</body>
-</html>

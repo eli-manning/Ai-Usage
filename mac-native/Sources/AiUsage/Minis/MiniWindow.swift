@@ -15,15 +15,11 @@ final class MiniWindow: NSObject, WKScriptMessageHandler {
         override var canBecomeMain: Bool { false }
     }
 
-    final class WebView: WKWebView {
-        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    }
-
     enum Action { case click, menu, moved }
 
     let id: String
     let panel: Panel
-    private let web: WebView
+    private let web: Web.View
     private var hot: [CGRect] = []
     private var ready = false
     private var pending: [String: Any]?
@@ -32,17 +28,6 @@ final class MiniWindow: NSObject, WKScriptMessageHandler {
     var onAction: ((Action) -> Void)?
     /// Set once the user drags it somewhere: it stops following the row.
     private(set) var pinned = false
-
-    /// The page's folder. Not `Bundle.module`: its generated accessor looks
-    /// beside the .app rather than in Contents/Resources (where `make app`
-    /// puts the bundle), and fatal-errors when it isn't found.
-    static let resources: URL? = {
-        // A release build lays the bundle out macOS-style (Contents/Resources); a debug one flat.
-        let names = ["AiUsage_AiUsage.bundle/Contents/Resources/Resources/minis", "AiUsage_AiUsage.bundle/Resources/minis"]
-        let roots = [Bundle.main.resourceURL, Bundle.main.bundleURL, Bundle.main.executableURL?.deletingLastPathComponent()]
-        return roots.compactMap { $0 }.flatMap { root in names.map { root.appendingPathComponent($0) } }
-            .first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("index.html").path) }
-    }()
 
     static func size(scale: Double) -> NSSize {
         let s = CGFloat(scale)
@@ -53,15 +38,13 @@ final class MiniWindow: NSObject, WKScriptMessageHandler {
         self.id = id
         let size = Self.size(scale: scale)
         let cfg = WKWebViewConfiguration()
-        web = WebView(frame: NSRect(origin: .zero, size: size), configuration: cfg)
+        web = Web.View(frame: NSRect(origin: .zero, size: size), configuration: cfg)
         panel = Panel(contentRect: NSRect(origin: .zero, size: size),
                       styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         super.init()
-        cfg.userContentController.add(WeakHandler(self), name: "mini")
+        cfg.userContentController.add(Web.WeakHandler(self), name: "mini")
         web.setValue(false, forKey: "drawsBackground")
-        if let dir = Self.resources {
-            web.loadFileURL(dir.appendingPathComponent("index.html"), allowingReadAccessTo: dir)
-        }
+        Web.load("mini.html", in: web)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -145,14 +128,5 @@ final class MiniWindow: NSObject, WKScriptMessageHandler {
         default:
             break
         }
-    }
-}
-
-/// WKUserContentController holds its handlers strongly; this breaks the cycle.
-final class WeakHandler: NSObject, WKScriptMessageHandler {
-    weak var target: (WKScriptMessageHandler & AnyObject)?
-    init(_ target: WKScriptMessageHandler & AnyObject) { self.target = target }
-    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-        target?.userContentController(c, didReceive: message)
     }
 }

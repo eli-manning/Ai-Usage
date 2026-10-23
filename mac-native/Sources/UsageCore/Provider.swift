@@ -15,7 +15,7 @@ import Foundation
 public struct Provider: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
-    /// Brand colour, as `RRGGBB`.
+    /// Its colour across the app, as `RRGGBB`: the accent of its mini (looks.js), not the brand's own.
     public let colorHex: String
     /// The binary `which` should look for.
     public let binary: String
@@ -41,21 +41,21 @@ public struct Provider: Identifiable, Equatable, Sendable {
     /// whenever the selected provider turns out to be disabled.
     public static let all: [Provider] = [
         Provider(
-            id: "claude", name: "Claude", colorHex: "CC785C", binary: "claude", letter: "C",
+            id: "claude", name: "Claude", colorHex: "E5714B", binary: "claude", letter: "C",
             hint: "Run `claude` and follow the sign-in prompt.",
             installCommand: "npm install -g @anthropic-ai/claude-code",
             installURL: "https://docs.anthropic.com/en/docs/claude-code/setup",
             loginCommand: "claude"),
 
         Provider(
-            id: "antigravity", name: "Antigravity", colorHex: "4E8CFF", binary: "agy", letter: "A",
+            id: "antigravity", name: "Antigravity", colorHex: "6C7EEB", binary: "agy", letter: "A",
             hint: "Run `agy`, then sign in with Google.",
             installCommand: "brew install --cask antigravity-cli",
             installURL: nil,
             loginCommand: "agy"),
 
         Provider(
-            id: "codex", name: "Codex", colorHex: "3ECF8E", binary: "codex", letter: "X",
+            id: "codex", name: "Codex", colorHex: "7183F2", binary: "codex", letter: "X",
             hint: "Run `codex`, then `/status` for usage.",
             installCommand: "npm i -g @openai/codex",
             installURL: nil,
@@ -69,7 +69,7 @@ public struct Provider: Identifiable, Equatable, Sendable {
         // with a working `cursor-agent`, rather than one that only works after
         // a manual PATH fix.
         Provider(
-            id: "cursor", name: "Cursor", colorHex: "8B7CF6", binary: "cursor-agent", letter: "U",
+            id: "cursor", name: "Cursor", colorHex: "55555C", binary: "cursor-agent", letter: "U",
             hint: "Run `cursor-agent`, then `/usage` for usage.",
             installCommand: #"curl -fsSL https://cursor.com/install | bash && (grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc)"#,
             installURL: nil,

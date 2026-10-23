@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AI Usage Settings</title>
+<link rel="stylesheet" href="pet.css">
+<link rel="stylesheet" href="ui.css">
+<style>
+  /* Settings: one tall Mochi panel filling the window, no tail. The transparent title bar (traffic lights) sits
+     over the paper above it. */
+  html, body { height: 100%; background: var(--paper, #fffaf3); }
+  #wrap { box-sizing: border-box; display: block; height: 100%; padding: 30px 16px 16px 14px; }
+  .card.px-bubble { box-sizing: border-box; width: calc(100% - 6px); height: calc(100% - 9px); display: flex; flex-direction: column; }
+  .card.px-bubble::after { display: none; }
+  #body { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px 4px; }
+  #body::-webkit-scrollbar { width: 6px; }
+  #body::-webkit-scrollbar-thumb { background: var(--line); }
+  html.full, html.full body, html.full #wrap, html.full .card.px-bubble { height: auto; }
+  html.full #body { overflow: visible; }
+
+  h2:first-child { margin-top: 4px; }
+  header { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid var(--line); }
+  .cap { margin: -2px 0 6px; font-size: 14px; color: var(--muted); line-height: 1.05; }
+  .set .end { display: flex; align-items: center; gap: 8px; flex: none; }
+  .set .two { display: flex; flex-direction: column; min-width: 0; line-height: 1.05; padding: 4px 0; }
+  .set .two .line { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set .two .line.ok { color: #4fae68; }
+  .set .two .line.warn { color: #c98d22; }
+  .set .two .line.error { color: var(--red); }
+  .set .who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .set.off .who { opacity: 0.55; }
+  .set.disabled { opacity: 0.5; pointer-events: none; }
+  /* a tiny live critter beside each provider, cropped to the critter itself */
+  .face.critter { position: relative; flex: none; width: 26px; height: 26px; overflow: hidden; }
+  .face canvas { position: absolute; left: -10px; top: -8px; }
+  .note { margin: 6px 0 2px; font-size: 14px; line-height: 1.05; color: #c98d22; }
+  .note.error { color: var(--red); }
+  .sound { display: flex; align-items: center; gap: 4px; }
+  .sound .name { width: 64px; text-align: center; font-size: 15px; }
+  .card .pxb.tiny { padding: 1px 5px 2px; font-size: 15px; }
+  .closet { margin-bottom: 6px; }
+  .seg button:disabled { color: var(--muted); cursor: default; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<div id="card" class="card px-bubble" tabindex="-1">
+  <header>
+    <div class="who"><div class="name">settings</div><div class="mood" id="mood">ai usage</div></div>
+  </header>
+  <div id="body"></div>
+</div>
+</div>
+<script src="pet.js"></script>
+<script src="icons.js"></script>
+<script src="looks.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>
