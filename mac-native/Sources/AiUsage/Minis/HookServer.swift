@@ -1,12 +1,13 @@
 import Foundation
 import Network
+import UsageCore
 
 /// A tiny HTTP listener on 127.0.0.1 that the hook scripts post to: one POST
 /// per connection, `/hook/<provider>`, body = the CLI's hook JSON.
 ///
 /// Its own port (Mochi's is 47833) so the two apps can run side by side.
 final class HookServer {
-    static let port: UInt16 = 47834
+    static let port = HookInstaller.port
 
     struct Delivery {
         let provider: String

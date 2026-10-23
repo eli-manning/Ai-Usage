@@ -1,6 +1,5 @@
 import Foundation
 import JavaScriptCore
-import UsageCore
 
 /// Connects each provider's CLI to the minis by adding a hook to its config,
 /// or takes it back out.
@@ -11,12 +10,19 @@ import UsageCore
 /// 127.0.0.1 in the background and exits at once, so it never slows down or
 /// fails the CLI. Configs are backed up before every write, and everything
 /// else in them is kept, in the same order.
-enum HookInstaller {
+public enum HookInstaller {
 
-    struct Target {
-        let provider: String
+    /// The port `HookServer` listens on. Mochi uses 47833, so both can run.
+    public static let port: UInt16 = 47834
+
+    /// Overridable so tests can point it at a temporary folder.
+    public static var home = FileManager.default.homeDirectoryForCurrentUser
+
+    public struct Target {
+        public let provider: String
         /// The config file the hook goes into.
-        let config: URL
+        public var config: URL { HookInstaller.home.appendingPathComponent(relativeConfig) }
+        let relativeConfig: String
         /// Hook event names to register.
         let events: [String]
         /// Events that take a tool-name matcher (Antigravity requires one).
@@ -24,25 +30,23 @@ enum HookInstaller {
         /// How the config file is laid out — see `configureJS`.
         let format: String
         /// Something the user still has to do after connecting, if anything.
-        let followUp: String?
+        public let followUp: String?
 
         var script: URL { config.deletingLastPathComponent().appendingPathComponent("hooks/aiusage-minis.sh") }
         var backup: URL { config.appendingPathExtension("aiusage-backup") }
     }
 
-    private static let home = FileManager.default.homeDirectoryForCurrentUser
-
-    static let targets: [String: Target] = [
+    public static let targets: [String: Target] = [
         "claude": Target(
             provider: "claude",
-            config: home.appendingPathComponent(".claude/settings.json"),
+            relativeConfig: ".claude/settings.json",
             events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure",
                      "PermissionRequest", "Notification", "Stop", "StopFailure", "SubagentStart", "PreCompact"],
             matcherEvents: [], format: "claude",
             followUp: "Restart running Claude Code sessions to pick it up."),
         "codex": Target(
             provider: "codex",
-            config: home.appendingPathComponent(".codex/hooks.json"),
+            relativeConfig: ".codex/hooks.json",
             events: ["SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest",
                      "PreCompact", "Stop", "Interrupt"],
             matcherEvents: [], format: "codex",
@@ -52,7 +56,7 @@ enum HookInstaller {
         // ever stop Cursor doing something.
         "cursor": Target(
             provider: "cursor",
-            config: home.appendingPathComponent(".cursor/hooks.json"),
+            relativeConfig: ".cursor/hooks.json",
             events: ["sessionStart", "sessionEnd", "beforeSubmitPrompt", "afterAgentThought", "postToolUse",
                      "postToolUseFailure", "afterShellExecution", "afterFileEdit", "afterMCPExecution", "preCompact", "stop"],
             matcherEvents: [], format: "cursor",
@@ -62,24 +66,24 @@ enum HookInstaller {
         // session, so the script passes both along itself.
         "antigravity": Target(
             provider: "antigravity",
-            config: home.appendingPathComponent(".gemini/antigravity-cli/hooks.json"),
+            relativeConfig: ".gemini/antigravity-cli/hooks.json",
             events: ["PreInvocation", "PostToolUse", "Stop"],
             matcherEvents: ["PostToolUse"], format: "antigravity",
             followUp: "Restart agy to pick it up. Antigravity reports less than the others: no permission prompts."),
     ]
 
-    static func isInstalled(_ provider: String) -> Bool {
+    public static func isInstalled(_ provider: String) -> Bool {
         guard let t = targets[provider], let text = try? String(contentsOf: t.config, encoding: .utf8) else { return false }
         return text.contains("aiusage-minis.sh")
     }
 
     /// Whether the CLI has a config folder at all — i.e. it's been run here.
-    static func canInstall(_ provider: String) -> Bool {
+    public static func canInstall(_ provider: String) -> Bool {
         guard let t = targets[provider] else { return false }
         return FileManager.default.fileExists(atPath: t.config.deletingLastPathComponent().path)
     }
 
-    static func setInstalled(_ provider: String, _ on: Bool) throws {
+    public static func setInstalled(_ provider: String, _ on: Bool) throws {
         guard let t = targets[provider] else { return }
         let fm = FileManager.default
         let text = (try? String(contentsOf: t.config, encoding: .utf8)) ?? ""
@@ -108,7 +112,7 @@ enum HookInstaller {
 
     /// Rewrites the scripts of every connected provider, so an app update's
     /// script changes reach hooks that were connected by an older version.
-    static func refreshScripts() {
+    public static func refreshScripts() {
         for t in targets.values where isInstalled(t.provider) { try? writeScript(t) }
     }
 
@@ -126,7 +130,7 @@ enum HookInstaller {
         [ -n "$AIUSAGE_PROBE" ] && exit 0   # AI Usage itself reading usage: not a session anyone is working in
         printf '%s' "$body" | /usr/bin/curl -s -m 2 -o /dev/null -H 'X-AiUsage: 1' -H "X-Pid: $PPID" \\
           -H "X-Event: $event" -H "X-Session: ${ANTIGRAVITY_CONVERSATION_ID:-}" -H 'Content-Type: application/json' \\
-          --data-binary @- "http://127.0.0.1:\(HookServer.port)/hook/$provider" >/dev/null 2>&1 &
+          --data-binary @- "http://127.0.0.1:\(port)/hook/$provider" >/dev/null 2>&1 &
         exit 0
 
         """
