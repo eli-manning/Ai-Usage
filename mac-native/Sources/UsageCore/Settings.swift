@@ -37,6 +37,7 @@ public final class Settings: @unchecked Sendable {
         var launchAtLogin: Bool?
         var setupComplete: Bool?
         var selectedProvider: String?
+        var minis: MinisConfig?
     }
 
     private let queue = DispatchQueue(label: "com.eli.aiusage.settings")
@@ -127,5 +128,11 @@ public final class Settings: @unchecked Sendable {
     public var selectedProvider: String {
         get { queue.sync { payload.selectedProvider ?? "claude" } }
         set { queue.sync { payload.selectedProvider = newValue; persist() } }
+    }
+
+    /// The minis: which providers get one, how they behave, how they alert.
+    public var minis: MinisConfig {
+        get { queue.sync { payload.minis ?? MinisConfig() } }
+        set { queue.sync { payload.minis = newValue; persist() } }
     }
 }
