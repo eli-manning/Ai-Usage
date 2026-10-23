@@ -6,6 +6,7 @@ import UsageCore
 /// display-mode switch that the Electron build had no way to offer.
 struct SettingsView: View {
     @ObservedObject var usage: UsageService
+    @ObservedObject var minis: MinisController
 
     @State private var displayMode = Settings.shared.displayMode
     @State private var launchAtLogin = Settings.shared.launchAtLogin
@@ -21,11 +22,12 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 26) {
                 appearanceSection
                 providersSection
+                MinisSettingsSection(minis: minis)
                 generalSection
             }
             .padding(22)
         }
-        .frame(width: 460, height: 620)
+        .frame(width: 500, height: 680)
         .background(Theme.bg)
     }
 
