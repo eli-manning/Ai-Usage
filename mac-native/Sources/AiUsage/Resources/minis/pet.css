@@ -8,67 +8,74 @@
 .critter { position: relative; display: inline-block; line-height: 0; -webkit-user-select: none; user-select: none; }
 .critter canvas { display: block; image-rendering: pixelated; }
 
-/* Speech bubble with stepped "pixel" corners: a 3px border drawn with box-shadows, no rounded corners. */
+/* Speech bubble on Mochi's pixel grid: a 3px ink border drawn with box-shadows (which leaves the corners notched),
+   a stepped tail pointing at Mochi, and a soft pixel shadow. Text wraps anywhere and stops at three lines. */
 .px-bubble {
   --ink: #2a1d1a;
   --paper: #fffaf3;
+  --shade: rgba(42, 29, 26, 0.16);
   --u: 3px;
   position: relative;
   box-sizing: border-box;
   width: max-content;
-  max-width: 250px;
+  max-width: 240px;
   margin: var(--u);
-  padding: 8px 11px 9px;
+  padding: 6px 11px 8px;
   background: var(--paper);
   color: var(--ink);
-  font: 400 19px/1.1 "Jersey 15", ui-monospace, Menlo, monospace;
+  font: 400 18px/1.15 "Jersey 15", ui-monospace, Menlo, monospace;
   letter-spacing: 0.02em;
-  text-wrap: pretty;
   box-shadow:
     0 calc(var(--u) * -1) 0 0 var(--ink),
     0 var(--u) 0 0 var(--ink),
     calc(var(--u) * -1) 0 0 0 var(--ink),
     var(--u) 0 0 0 var(--ink),
-    0 calc(var(--u) * 2) 0 0 rgba(42, 29, 26, 0.22),
-    var(--u) var(--u) 0 0 rgba(42, 29, 26, 0.22);
+    0 calc(var(--u) * 2) 0 0 var(--shade),
+    var(--u) calc(var(--u) * 2) 0 0 var(--shade);
   transform-origin: 50% 100%;
 }
-/* the tail: three stacked blocks stepping down toward the critter */
-.px-bubble::before,
+.px-bubble .b-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+/* the tail: a 7×4 pixel wedge that covers the bottom border and steps down to a point */
 .px-bubble::after {
   content: "";
   position: absolute;
-  left: calc(50% - 6px + var(--tail-x, 0px));
   top: 100%;
-  background: var(--ink);
+  left: calc(50% + var(--tail-x, 0px));
+  width: calc(var(--u) * 7);
+  height: calc(var(--u) * 4);
+  transform: translateX(-50%);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'%3E%3Cpath fill='%232a1d1a' d='M0 0h1v1H0zM6 0h1v1H6zM1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3z'/%3E%3Cpath fill='%23fffaf3' d='M1 0h5v1H1zM2 1h3v1H2zM3 2h1v1H3z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
 }
-.px-bubble::before { width: 12px; height: 3px; margin-top: 3px; box-shadow: 3px 3px 0 0 var(--ink), 3px 6px 0 -0px var(--ink); width: 9px; }
-.px-bubble::after { width: 6px; height: 3px; margin-top: 0; left: calc(50% - 3px + var(--tail-x, 0px)); background: var(--paper); box-shadow: 0 3px 0 0 var(--paper); }
 /* bubble under Mochi (when it's perched near the top of a screen): the tail flips to point up */
 .below > .px-bubble { transform-origin: 50% 0; }
-.below > .px-bubble::before { top: auto; bottom: 100%; margin: 0 0 3px; box-shadow: 3px -3px 0 0 var(--ink), 3px -6px 0 0 var(--ink); }
-.below > .px-bubble::after { top: auto; bottom: 100%; box-shadow: 0 -3px 0 0 var(--paper); }
-.px-bubble.pop { animation: px-pop 0.28s steps(4, end); }
-@keyframes px-pop { from { transform: translateY(6px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.below > .px-bubble::after { top: auto; bottom: 100%; transform: translateX(-50%) scaleY(-1); }
+.px-bubble.pop { animation: px-pop 0.24s steps(4, end); }
+@keyframes px-pop { from { transform: translateY(6px) scale(0.7); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* pixel icons standing in for emoji (see icons.js) */
 .px-bubble .px-icon { display: inline-block; vertical-align: -1px; margin: 0 3px; image-rendering: pixelated; }
-.px-bubble button .px-icon { margin: 0 4px 0 0; vertical-align: 0; }
+.px-bubble .b-btns button .px-icon { margin: 0 4px 0 0; vertical-align: 0; }
 
-.px-bubble .b-btns { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 9px; }
+.px-bubble .b-btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 9px 2px 3px; }
 .px-bubble .b-btns[hidden] { display: none; }
-.px-bubble button {
-  font: 400 17px/1 "Jersey 15", ui-monospace, Menlo, monospace;
+.px-bubble .b-btns button {
+  font: 400 16px/1 "Jersey 15", ui-monospace, Menlo, monospace;
   letter-spacing: 0.03em;
   color: var(--ink);
-  background: #f2e6da;
+  background: #f3e9dd;
   border: 0;
-  padding: 4px 9px 5px;
-  margin: 2px;
+  padding: 3px 9px 4px;
   cursor: pointer;
-  box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), 0 4px 0 0 var(--ink);
+  box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), 0 4px 0 0 var(--shade);
 }
-.px-bubble button.primary { background: #ee8862; color: #fff; text-shadow: 1px 1px 0 #a84b2e; }
-.px-bubble button:hover { filter: brightness(1.06); }
-.px-bubble button:active { transform: translateY(2px); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
-.px-bubble button:focus-visible { outline: 2px dashed #5a78e0; outline-offset: 3px; }
+.px-bubble .b-btns button.primary { background: #e5714b; color: #fff; }
+.px-bubble .b-btns button:hover { filter: brightness(1.05); }
+.px-bubble .b-btns button:active { transform: translateY(2px); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); }
+.px-bubble .b-btns button:focus-visible { outline: 2px dashed #5a78e0; outline-offset: 3px; }
