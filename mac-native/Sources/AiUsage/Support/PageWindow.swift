@@ -43,8 +43,10 @@ final class PageWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     }
 
     func show() {
-        window.makeKeyAndOrderFront(nil)
+        // A menu-bar app isn't frontmost, and macOS may decline to activate it, so bring the window up regardless.
         NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
         update()
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

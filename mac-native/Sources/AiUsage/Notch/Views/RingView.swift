@@ -383,8 +383,7 @@ struct RingView: View {
                         radius: w.rInner + (w.rOuter - w.rInner) * 0.6,
                         centerDeg: (w.startDeg + w.endDeg) / 2,
                         fontSize: w.isSelected ? 15 : 10,
-                        weight: .bold,
-                        color: .white
+                        color: Theme.ink
                     )
                     .position(x: cx, y: cy)
                     .allowsHitTesting(false)
@@ -400,7 +399,7 @@ struct RingView: View {
                         radius: w.rOuter - 6,
                         centerDeg: (w.startDeg + w.endDeg) / 2,
                         fontSize: w.isSelected ? 9.5 : 8,
-                        color: w.isSelected ? .white.opacity(0.85) : .white.opacity(0.65)
+                        color: w.isSelected ? Theme.ink : Theme.muted
                     )
                     .position(x: cx, y: cy)
                     .allowsHitTesting(false)
@@ -425,8 +424,7 @@ struct RingView: View {
                         radius: (info.rInner + info.rOuter) / 2,
                         centerDeg: (info.startDeg + info.endDeg) / 2,
                         fontSize: 9,
-                        weight: .medium,
-                        color: .white.opacity(0.8)
+                        color: Theme.ink
                     )
                     .position(x: cx, y: cy)
                     .allowsHitTesting(false)
@@ -495,14 +493,11 @@ struct RingView: View {
             }
             .compositingGroup()
 
-            IconAura(color: activeProvider.color, size: hubR * 2.6)
-                .position(x: cx, y: cy)
-
             Circle()
-                .fill(Color.black.opacity(0.85))
-                .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+                .fill(Theme.soft)
+                .overlay(Circle().stroke(Theme.ink, lineWidth: 2.5))
                 .frame(width: hubR * 2, height: hubR * 2)
-                .shadow(color: .black.opacity(0.6), radius: 6, y: 2)
+                .shadow(color: Theme.ink.opacity(0.16), radius: 0, y: 3)
                 .position(x: cx, y: cy)
 
             // Icon only — no flat label here, the logo is recognizable
@@ -526,8 +521,7 @@ struct RingView: View {
                         radius: w.rOuter - 6,
                         centerDeg: (w.startDeg + w.endDeg) / 2,
                         fontSize: 6,
-                        weight: .bold,
-                        color: Format.statusColor(pct)
+                        color: Theme.inkTier(pct)
                     )
                     .position(x: cx, y: cy)
                     .allowsHitTesting(false)
@@ -557,49 +551,30 @@ struct RingView: View {
         selectedStatID = "session"
     }
 
+    /// A wedge on Mochi's paper: filled in when selected, soft otherwise, with an ink outline and a hard pixel
+    /// shadow like every panel. Usage runs along the outside as a blocked arc, the same 20 blocks as the dropdown's
+    /// meters, coloured by tier.
     private func wedgeShape(_ w: WedgeLayout) -> some View {
-        WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                   startDeg: w.startDeg, endDeg: w.endDeg)
-            // A solid dark base first — the glassmorphic color wash on top
-            // reads as basically transparent without something opaque-ish
-            // underneath it, which is what let wedges blend into whatever's
-            // behind the panel (wallpaper, other windows, etc).
-            .fill(Color.black.opacity(0.4))
-            .overlay(
-                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                           startDeg: w.startDeg, endDeg: w.endDeg)
-                    .fill(
-                        LinearGradient(
-                            // Unselected wedges now get a wash of their own
-                            // brand color too, not plain white — more
-                            // contrast against the background, and an extra
-                            // cue for telling wedges apart at a glance.
-                            colors: w.isSelected
-                                ? [w.bubble.color.opacity(0.42), w.bubble.color.opacity(0.18)]
-                                : [w.bubble.color.opacity(0.22), w.bubble.color.opacity(0.08)],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                    )
-            )
-            .shadow(color: .black.opacity(0.55), radius: 6, x: 0, y: 3)
-            .overlay(
-                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                           startDeg: w.startDeg, endDeg: w.endDeg)
-                    .glow(color: w.bubble.color, lineWidth: w.isSelected ? 2 : 1.3, blurRadius: w.isSelected ? 6 : 3)
-                    .opacity(w.isSelected ? 1 : 0.8)
-            )
+        let shape = WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
+                               startDeg: w.startDeg, endDeg: w.endDeg)
+        return shape
+            .fill(w.isSelected ? Theme.paper : Theme.soft)
+            .shadow(color: Theme.ink.opacity(0.16), radius: 0, x: 0, y: 3)
+            .overlay(shape.stroke(Theme.ink, style: StrokeStyle(lineWidth: w.isSelected ? 2.5 : 2, lineJoin: .miter)))
             .overlay(
                 Group {
                     if let pct = w.bubble.pct {
                         let frac = CGFloat(max(0, min(100, pct))) / 100
-                        ArcShape(cx: cx, cy: cy, r: w.rOuter + 5,
+                        let r = w.rOuter + 5
+                        let block = r * CGFloat((w.endDeg - w.startDeg) * .pi / 180) / 20
+                        ArcShape(cx: cx, cy: cy, r: r,
                                  startDeg: w.startDeg, endDeg: w.startDeg + (w.endDeg - w.startDeg) * frac)
-                            .glow(color: w.bubble.color, lineWidth: 2, blurRadius: 6)
+                            .stroke(Theme.fillTier(pct, accent: w.bubble.color),
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .butt, dash: [max(block - 1.5, 1), 1.5]))
                     }
                 }
             )
-            .contentShape(WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                                      startDeg: w.startDeg, endDeg: w.endDeg))
+            .contentShape(shape)
     }
 
     /// `CurvedText` walks every character around the arc rather than
@@ -611,40 +586,26 @@ struct RingView: View {
         return String(s.prefix(maxChars - 1)) + "…"
     }
 
-    /// The layer-3 "extra detail" band — same brand-tinted glass as the
-    /// stat wedges, but deliberately quieter (no percent arc, thinner glow):
-    /// it's a caption for the selected wedge, not another stat competing
-    /// for attention.
+    /// The layer-3 "extra detail" band: the same paper as the stat wedges,
+    /// but quieter (no usage arc, a thinner outline). It's a caption for the
+    /// selected wedge, not another stat competing for attention.
     private func infoWedgeShape(_ w: WedgeLayout) -> some View {
-        WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                   startDeg: w.startDeg, endDeg: w.endDeg)
-            .fill(Color.black.opacity(0.3))
-            .overlay(
-                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                           startDeg: w.startDeg, endDeg: w.endDeg)
-                    .fill(w.bubble.color.opacity(0.12))
-            )
-            .overlay(
-                WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
-                           startDeg: w.startDeg, endDeg: w.endDeg)
-                    .glow(color: w.bubble.color, lineWidth: 1, blurRadius: 2)
-                    .opacity(0.6)
-            )
+        let shape = WedgeShape(cx: cx, cy: cy, rInner: w.rInner, rOuter: w.rOuter,
+                               startDeg: w.startDeg, endDeg: w.endDeg)
+        return shape
+            .fill(Theme.paper)
+            .overlay(shape.stroke(Theme.ink, lineWidth: 1.5))
+            .shadow(color: Theme.ink.opacity(0.16), radius: 0, x: 0, y: 2)
     }
 
-    /// Icon-only wedge content — no label at all. The logo itself is more
-    /// recognizable than a tiny caption, so the provider ring just shows a
-    /// badge sized to fill as much of its own wedge as it can (bounded by
-    /// both the wedge's angular width and its radial thickness, so it never
-    /// pokes past either edge). The glow behind it identifies the brand
-    /// color, so the icon itself stays plain white — tinting it the *same*
-    /// color as the glow behind it (with an additive blend, no less) was
-    /// what made it wash out to an illegible blob.
+    /// Icon-only wedge content, no label: each provider's mini is more
+    /// recognizable than a tiny caption, sized to fill as much of its own
+    /// wedge as it can (bounded by both the wedge's angular width and its
+    /// radial thickness, so it never pokes past either edge).
     private func iconOnlyWedgeContent(_ w: WedgeLayout) -> some View {
         let diameter = max(min(w.labelMaxWidth, w.rOuter - w.rInner) * 0.94, 1)
         return ZStack {
-            IconAura(color: w.bubble.color, size: diameter * 1.25)
-            iconView(w.bubble.icon, size: diameter * 0.6, tint: .white)
+            iconView(w.bubble.icon, size: diameter * 0.6, tint: Theme.ink)
         }
         .frame(width: diameter, height: diameter)
         .rotationEffect(.degrees(w.tangentRotationDeg))
@@ -675,10 +636,10 @@ struct RingView: View {
         VStack(spacing: 6) {
             Image(systemName: activeStatus.actionIcon)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(.white)
-            Text(activeStatus.actionLabel.uppercased())
-                .font(.system(size: 10.5, weight: .bold))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(Theme.ink)
+            Text(activeStatus.actionLabel.lowercased())
+                .font(PixelFont.font(16))
+                .foregroundColor(Theme.ink)
         }
         .position(w.contentPos(cx: cx, cy: cy, radiusFraction: 0.58))
         .allowsHitTesting(false)
@@ -725,15 +686,8 @@ struct RingView: View {
     private func wedgeContent(_ w: WedgeLayout) -> some View {
         VStack(spacing: w.isSelected ? 5 : 4) {
             ZStack {
-                if w.isSelected {
-                    IconAura(color: w.bubble.color, size: 46)
-                }
-                // Same reasoning as the provider badges above: once there's
-                // a same-color glow behind it (selected only), the icon
-                // needs to switch to white or it disappears into its own
-                // halo. Unselected icons have no glow, so the brand tint
-                // still reads fine against the plain wedge fill.
-                iconView(w.bubble.icon, size: w.isSelected ? 18 : 14, tint: w.isSelected ? .white : w.bubble.color)
+                // Ink on the selected wedge, muted on the rest, like a panel's text.
+                iconView(w.bubble.icon, size: w.isSelected ? 18 : 14, tint: w.isSelected ? Theme.ink : Theme.muted)
             }
             .frame(width: w.isSelected ? 32 : 24, height: w.isSelected ? 32 : 24)
             .rotationEffect(.degrees(w.tangentRotationDeg))
@@ -747,8 +701,8 @@ struct RingView: View {
 
     @ViewBuilder private func iconView(_ icon: IconKind, size: CGFloat, tint: Color) -> some View {
         switch icon {
-        case .svg(let d):
-            BrandIconView(d: d, size: size, color: tint)
+        case .critter(let id):
+            PixelCritter(provider: id, height: size * 1.3)
         case .symbol(let name):
             Image(systemName: name).font(.system(size: size * 0.66, weight: .semibold)).foregroundColor(tint)
         }
@@ -766,23 +720,11 @@ struct RingView: View {
         let hubScale = effectiveHubRadius / RingGeometry.hubRadius
         Button(action: onSync) {
             ZStack {
-                Circle().fill(activeProvider.color)
-                    .shadow(color: activeProvider.color.opacity(0.8), radius: 7)
-                // Nudged down from true-center — the circle itself is cut
-                // in half by the bar above, so centering the logo on the
-                // circle's midpoint would put its top half up under the
-                // bar; shifting it toward the visible (bottom) half keeps
-                // it fully readable. Rotation has to come *before* the
-                // offset here: rotationEffect spins a view around its own
-                // center as it's currently laid out, so rotating first (at
-                // the icon's natural position) then shifting the whole
-                // already-spinning result down is what keeps it spinning in
-                // place. Doing it the other way (offset then rotate) rotates
-                // around the shifted view's bounding box in a way that reads
-                // as an orbit instead of an in-place spin.
-                BrandIconView(d: activeProvider.icon, size: 19 * hubScale)
-                    .rotationEffect(.degrees(usage.isRefreshing ? 360 : 0))
-                    .animation(usage.isRefreshing ? .linear(duration: 0.9).repeatForever(autoreverses: false) : .default, value: usage.isRefreshing)
+                Circle().fill(Theme.paper)
+                    .overlay(Circle().stroke(Theme.ink, lineWidth: 2.5))
+                // Nudged down from true-centre: the circle is cut in half by the bar above, so the critter sits in
+                // the visible bottom half. It squints while a refresh runs.
+                PixelCritter(provider: activeProvider.id, height: 20 * hubScale, busy: usage.isRefreshing)
                     .offset(y: 11 * hubScale)
             }
             .frame(width: effectiveHubRadius * 2, height: effectiveHubRadius * 2)
@@ -790,30 +732,15 @@ struct RingView: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help("Click to refresh · hover to switch provider · right-click for menu")
+        .help("click to refresh · hover to switch provider · right-click for the menu")
         // Hover no longer lives here at all — see `HoverCircle` in
         // `body`, a native fixed-geometry hover sensor that isn't affected
         // by this button's own resizing, or by anything else in the tree.
-        // The notch shell has no status item beside it (see AppDelegate), so
-        // this is the only route to the app's global actions — it carries the
-        // same menu the tray shell's status item does, not just Quit.
-        // Collapse first: the panel would otherwise sit expanded behind the
-        // window the menu opens.
-        .contextMenu {
-            Button("Refresh Now") {
-                Task { await usage.refresh() }
-            }
-            Divider()
-            Button("Settings…") {
-                NotificationCenter.default.post(name: .panelShouldCollapse, object: nil)
-                NotificationCenter.default.post(name: .openSettingsRequested, object: nil)
-            }
-            Button("Run Setup Wizard…") {
-                NotificationCenter.default.post(name: .panelShouldCollapse, object: nil)
-                NotificationCenter.default.post(name: .openWizardRequested, object: nil)
-            }
-            Divider()
-            Button("Quit AI Usage") { NSApp.terminate(nil) }
-        }
+        // The notch shell has no status item, so right-clicking here opens the same dropdown the menu bar icon
+        // does, hanging from the notch. Collapse first: the fan would otherwise sit open behind it.
+        .overlay(RightClick {
+            NotificationCenter.default.post(name: .panelShouldCollapse, object: nil)
+            NotificationCenter.default.post(name: .usageMenuRequested, object: nil)
+        })
     }
 }

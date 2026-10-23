@@ -15,9 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let usage = UsageService()
     private lazy var minis = MinisController(usage: usage)
 
-    private lazy var statusItem = StatusItemController(
-        usage: usage,
-        onOpenSettings: { [weak self] in self?.openSettings() })
+    /// The usage dropdown, shared: the menu bar icon opens it, and so does right-clicking the notch.
+    private lazy var menu = UsageMenu(usage: usage, onOpenSettings: { [weak self] in self?.openSettings() })
+
+    private lazy var statusItem = StatusItemController(usage: usage, menu: menu)
 
     private lazy var panel = PanelController(usage: usage)
 
@@ -43,6 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(openWizard),
             name: .openWizardRequested, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(openMenuUnderNotch),
+            name: .usageMenuRequested, object: nil)
 
         apply(mode: resolvedMode())
         minis.start()
@@ -91,4 +95,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openSettings() { settings.show() }
 
     @objc func openWizard() { wizard.show() }
+
+    /// Notch mode has no menu bar icon, so right-clicking the notch opens the dropdown hanging from it instead.
+    @objc func openMenuUnderNotch() {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let feet = screen.frame.maxY - NotchGeometry.info(for: screen).reservedTopHeight
+        menu.show(x: screen.frame.midX, top: screen.frame.maxY, feet: feet - 2)
+    }
 }

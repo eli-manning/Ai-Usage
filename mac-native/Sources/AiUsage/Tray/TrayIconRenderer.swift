@@ -18,17 +18,10 @@ enum TrayIconRenderer {
     private static let critterHeight: CGFloat = 18
 
     static func icon(provider: String, pct: Int?, mood: Mood, darkBar: Bool) -> NSImage {
-        let sprite = TraySprites.all[provider] ?? TraySprites.all["claude"]!
-        let rows: [String]
-        switch mood {
-        case .fine: rows = sprite.fine
-        case .busy: rows = sprite.busy
-        case .error: rows = sprite.error
-        }
-        let colors = sprite.palette.map { NSColor(hex: $0) }
+        let sprite = PixelCritter.image(provider, mood: mood)
         // Whole device pixels on a 2x screen: 1, 1.5, 2...
-        let px = max(1, ((critterHeight / CGFloat(rows.count)) * 2).rounded(.down) / 2)
-        let critter = NSSize(width: CGFloat(rows.first?.count ?? 0) * px, height: CGFloat(rows.count) * px)
+        let px = max(1, ((critterHeight / CGFloat(sprite.height)) * 2).rounded(.down) / 2)
+        let critter = NSSize(width: CGFloat(sprite.width) * px, height: CGFloat(sprite.height) * px)
 
         let label = pct.map { "\($0)%" } ?? (mood == .error ? "!" : "")
         let font = PixelFont.ns(21)
@@ -44,12 +37,14 @@ enum TrayIconRenderer {
 
         let image = NSImage(size: size, flipped: true) { _ in
             let top = ((size.height - critter.height) / 2).rounded()
-            for (j, row) in rows.enumerated() {
-                for (i, ch) in row.enumerated() {
-                    guard let a = ch.asciiValue, ch != ".", Int(a) - 97 < colors.count else { continue }
-                    colors[Int(a) - 97].setFill()
-                    NSRect(x: CGFloat(i) * px, y: top + CGFloat(j) * px, width: px, height: px).fill()
-                }
+            if let ctx = NSGraphicsContext.current?.cgContext {
+                ctx.saveGState()
+                ctx.interpolationQuality = .none
+                // The image is drawn upright in a flipped context by flipping it back around its own rect.
+                ctx.translateBy(x: 0, y: top + critter.height)
+                ctx.scaleBy(x: 1, y: -1)
+                ctx.draw(sprite, in: CGRect(origin: .zero, size: critter))
+                ctx.restoreGState()
             }
             // Sit the digits on the critter's feet line, like it's standing next to them.
             let baseline = top + critter.height - 1

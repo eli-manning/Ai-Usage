@@ -21,19 +21,18 @@ struct CurvedText: View {
     let radius: CGFloat
     let centerDeg: Double
     let fontSize: CGFloat
-    let weight: NSFont.Weight
     let color: Color
 
-    init(text: String, radius: CGFloat, centerDeg: Double, fontSize: CGFloat, weight: NSFont.Weight = .semibold, color: Color) {
+    init(text: String, radius: CGFloat, centerDeg: Double, fontSize: CGFloat, color: Color) {
         self.text = text
         self.radius = radius
         self.centerDeg = centerDeg
         self.fontSize = fontSize
-        self.weight = weight
         self.color = color
     }
 
-    private var nsFont: NSFont { .systemFont(ofSize: fontSize, weight: weight) }
+    /// Jersey 15 runs small for its point size, so it's set a third larger than a system font would be.
+    private var nsFont: NSFont { PixelFont.ns(fontSize * 1.35) }
 
     var body: some View {
         let chars = Array(text).map(String.init)

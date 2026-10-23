@@ -16,72 +16,41 @@ extension Color {
 
 extension Provider {
     var color: Color { Color(hex: colorHex) }
-
-    /// Spelled `icon` as well as `iconPath` because the notch views were
-    /// written against the standalone app's own Provider, which used the
-    /// shorter name; keeping both avoids touching 41KB of working view code.
-    var icon: String { iconPath }
-
-    /// The Simple Icons brand mark for this provider. Path data lives in
-    /// `BrandIcon` rather than alongside the rest of the provider row because
-    /// it's several KB of geometry per mark, and it changes far less often.
-    var iconPath: String {
-        switch id {
-        case "claude": return BrandIcon.claude
-        case "antigravity": return BrandIcon.gemini
-        case "codex": return BrandIcon.codex
-        case "cursor": return BrandIcon.cursor
-        default: return BrandIcon.claude
-        }
-    }
 }
 
-/// The palette, carried over from `popup.html`'s CSS custom properties so the
-/// native popover reads as the same app rather than a redesign.
+/// Mochi's palette (pet.css, ui.css), for the native bits that sit beside the pages: the notch's fan is the same
+/// paper and ink as every panel.
 enum Theme {
-    static let bg = Color(hex: "0F0F0F")
-    static let surface = Color(hex: "181818")
-    static let border = Color(hex: "242424")
-    static let dim = Color(hex: "2A2A2A")
-    static let text = Color(hex: "E6E6E6")
-    static let muted = Color(hex: "505050")
-    static let green = Color(hex: "4DB876")
-    static let yellow = Color(hex: "D4A843")
-    static let red = Color(hex: "C95C5C")
+    static let paper = Color(hex: "FFFAF3")
+    static let soft = Color(hex: "F3E9DD")
+    static let ink = Color(hex: "2A1D1A")
+    static let muted = Color(hex: "8D7A6E")
 
-    static let cornerRadius: CGFloat = 12
-
-    /// Usage-tier colour. `accent` is the selected provider's own brand colour,
-    /// used for the healthy band so the whole panel re-themes per provider —
-    /// but the warning and danger bands stay fixed, because "you are nearly out
-    /// of quota" must not read differently depending on which tab you're on.
-    static func tier(_ pct: Int?, accent: Color) -> Color {
+    /// A usage figure printed on paper: ink, then amber past 70%, red past 90%. Same tiers as the dropdown.
+    static func inkTier(_ pct: Int?) -> Color {
         guard let pct else { return muted }
-        if pct >= 90 { return red }
-        if pct >= 70 { return yellow }
+        if pct >= 90 { return Color(hex: "C8382B") }
+        if pct >= 70 { return Color(hex: "A86A00") }
+        return ink
+    }
+
+    /// The same tiers as a fill: the provider's own colour while it's fine.
+    static func fillTier(_ pct: Int, accent: Color) -> Color {
+        if pct >= 90 { return Color(hex: "D9483B") }
+        if pct >= 70 { return Color(hex: "E0A43B") }
         return accent
     }
 }
 
 enum Format {
 
-    /// The notch's own palette for a usage figure — brighter than the
-    /// popover's, because it renders as text directly on the black bump
-    /// rather than as a bar on a panel.
+    /// A usage figure printed on the black bar beside the notch: white, then
+    /// a light amber and red, bright enough to read on black.
     static func statusColor(_ pct: Int?) -> Color {
         guard let pct else { return .white.opacity(0.5) }
         if pct >= 90 { return Color(hex: "E0857C") }
         if pct >= 70 { return Color(hex: "E6BD6B") }
         return .white
-    }
-
-    /// The same tiers as `statusColor`, but saturated for fills and arcs
-    /// rather than text.
-    static func statusHex(_ pct: Int?) -> Color {
-        guard let pct else { return .white.opacity(0.3) }
-        if pct >= 90 { return Color(hex: "D1685F") }
-        if pct >= 70 { return Color(hex: "D4A843") }
-        return Color(hex: "CC785C")
     }
 
     /// "just now" / "5m ago" / "3h ago" — the freshness label.

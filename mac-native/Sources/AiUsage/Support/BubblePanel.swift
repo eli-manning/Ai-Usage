@@ -29,7 +29,8 @@ final class BubblePanel: NSObject, WKScriptMessageHandler {
     var opened: (Bool) -> Void = { _ in }
     var isOpen: Bool { window.isVisible }
 
-    init(page: String) {
+    /// `level` defaults to Mochi's; the usage dropdown goes higher so it also opens over the notch's own window.
+    init(page: String, level: NSWindow.Level = .statusBar) {
         let cfg = WKWebViewConfiguration()
         web = Web.View(frame: NSRect(origin: .zero, size: size), configuration: cfg)
         web.setValue(false, forKey: "drawsBackground")
@@ -42,7 +43,7 @@ final class BubblePanel: NSObject, WKScriptMessageHandler {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false   // the bubble draws its own pixel shadow
-        window.level = .statusBar
+        window.level = level
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
     }
 

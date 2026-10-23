@@ -13,6 +13,9 @@ extension Notification.Name {
     /// Posted when a view wants the setup wizard shown.
     static let openWizardRequested = Notification.Name("com.eli.aiusage.openWizard")
 
+    /// Posted when the notch is right-clicked: the usage dropdown opens under it.
+    static let usageMenuRequested = Notification.Name("com.eli.aiusage.usageMenu")
+
     // `panelShouldCollapse` is declared by PanelController, which owns the
     // behaviour it drives — left there rather than hoisted here.
 }

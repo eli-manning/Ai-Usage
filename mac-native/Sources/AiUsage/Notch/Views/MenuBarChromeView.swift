@@ -84,12 +84,9 @@ struct MenuBarChromeView: View {
         .animation(.island(open: isExpanded), value: isExpanded)
     }
 
+    /// The active provider's mini, the same critter as the menu bar icon and the one on screen.
     private var badge: some View {
-        ZStack {
-            Circle().fill(activeProvider.color.opacity(0.3))
-            BrandIconView(d: activeProvider.icon, size: 12)
-        }
-        .frame(width: 19, height: 19)
+        PixelCritter(provider: activeProvider.id, height: 17)
     }
 
     /// Antigravity's "right now" figure for the pill, same role Claude's
@@ -115,27 +112,27 @@ struct MenuBarChromeView: View {
     @ViewBuilder private var percentageLabel: some View {
         if isClaudeActive, let session = claude.session {
             Text("\(session)%")
-                .font(.system(size: 13, weight: .bold))
+                .font(PixelFont.font(19))
                 .foregroundColor(Format.statusColor(session))
                 .fixedSize()
         } else if let pct = antigravityPillPct {
             Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
+                .font(PixelFont.font(19))
                 .foregroundColor(Format.statusColor(pct))
                 .fixedSize()
         } else if let pct = codexPillPct {
             Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
+                .font(PixelFont.font(19))
                 .foregroundColor(Format.statusColor(pct))
                 .fixedSize()
         } else if let pct = cursorPillPct {
             Text("\(pct)%")
-                .font(.system(size: 13, weight: .bold))
+                .font(PixelFont.font(19))
                 .foregroundColor(Format.statusColor(pct))
                 .fixedSize()
         } else {
             Text(compactLabel)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(PixelFont.font(15))
                 .foregroundColor(.white.opacity(0.45))
                 .fixedSize()
         }
