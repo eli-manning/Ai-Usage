@@ -395,7 +395,7 @@ struct RingView: View {
                 // selected.
                 ForEach(outerWedges) { w in
                     CurvedText(
-                        text: w.bubble.label.uppercased(),
+                        text: w.bubble.label.lowercased(),
                         radius: w.rOuter - 6,
                         centerDeg: (w.startDeg + w.endDeg) / 2,
                         fontSize: w.isSelected ? 9.5 : 8,
@@ -420,7 +420,7 @@ struct RingView: View {
                     infoWedgeShape(info)
                         .transition(.opacity)
                     CurvedText(
-                        text: infoDisplayText(sub),
+                        text: infoDisplayText(sub).lowercased(),
                         radius: (info.rInner + info.rOuter) / 2,
                         centerDeg: (info.startDeg + info.endDeg) / 2,
                         fontSize: 9,
@@ -567,8 +567,9 @@ struct RingView: View {
                         let frac = CGFloat(max(0, min(100, pct))) / 100
                         let r = w.rOuter + 5
                         let block = r * CGFloat((w.endDeg - w.startDeg) * .pi / 180) / 20
+                        // Angles grow right to left across the fan, so filling from endDeg reads left to right.
                         ArcShape(cx: cx, cy: cy, r: r,
-                                 startDeg: w.startDeg, endDeg: w.startDeg + (w.endDeg - w.startDeg) * frac)
+                                 startDeg: w.endDeg - (w.endDeg - w.startDeg) * frac, endDeg: w.endDeg)
                             .stroke(Theme.fillTier(pct, accent: w.bubble.color),
                                     style: StrokeStyle(lineWidth: 5, lineCap: .butt, dash: [max(block - 1.5, 1), 1.5]))
                     }
